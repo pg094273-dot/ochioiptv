@@ -1,31 +1,23 @@
-# IPTV Web Player - Solución CORS
+# IPTV Player - Versión Final
 
-Reproductor con proxy CORS integrado para solucionar error manifestLoadError.
+## Problemas Solucionados
 
-## Uso Rápido
+✅ **Autoplay bloqueado** → Botón ▶️ REPRODUCIR grande y visible
+✅ **Error en video** → Mensajes claros con soluciones
+✅ **Error CORS manifestLoadError** → Proxy integrado activado por defecto
+
+## Uso
 
 1. Abre `index.html`
-2. El proxy CORS está activado por defecto
-3. Haz clic en "Cargar"
-4. Reproduce cualquier canal
+2. Haz clic en "Cargar" (tiene URL de ejemplo)
+3. Selecciona un canal
+4. **Haz clic en el botón ▶️ REPRODUCIR**
+5. El video comenzará a reproducir
 
-## Si hay error manifestLoadError
+## Si hay problemas
 
-1. Verifica que el proxy esté activado (checkbox arriba)
-2. Prueba otro proxy del selector
-3. Haz clic en "🧪 Test" para verificar
-4. Mira la consola de depuración
+- **Autoplay bloqueado**: Verás botón grande ▶️ REPRODUCIR
+- **Error CORS**: Cambia el proxy en el selector de arriba
+- **Error en video**: Mira la consola de depuración
 
-## Alternativas
-
-- Instala extensión "CORS Unblock" en Chrome/Edge
-- O ejecuta desde servidor local: `python -m http.server 8000`
-
-## Características
-
-✅ Proxy CORS integrado
-✅ Detección automática de errores
-✅ 3 pestañas: TV / Películas / Series
-✅ Consola de debugging
-
-Versión 2026 | MIT License
+Versión 2026 | Solución completa

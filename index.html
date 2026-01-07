@@ -5,17 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Player - CORS Fixed</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #141414; color: #fff; }
+        .container { min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: #000; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        .logo h1 { color: #e50914; font-size: 22px; }
+        .input-group { display: flex; gap: 10px; }
+        input[type="text"] { padding: 10px 15px; border: 2px solid #333; border-radius: 6px; background: #222; color: #fff; min-width: 300px; }
+        .btn-primary { padding: 10px 20px; border: none; border-radius: 6px; background: #e50914; color: white; font-weight: bold; cursor: pointer; }
+        .btn-primary:hover { background: #b20710; }
+        .btn-secondary { padding: 10px 20px; border: 2px solid #333; border-radius: 6px; background: #222; color: #fff; cursor: pointer; }
+        .settings-bar { background: #1a1a1a; padding: 10px 30px; display: flex; gap: 20px; align-items: center; border-bottom: 1px solid #333; flex-wrap: wrap; }
+        .setting-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .tabs { display: flex; background: #1a1a1a; padding: 0 30px; border-bottom: 2px solid #333; }
+        .tab { padding: 15px 25px; background: transparent; border: none; color: #999; cursor: pointer; border-bottom: 3px solid transparent; }
+        .tab.active { color: #e50914; border-bottom-color: #e50914; }
+        .main-content { display: grid; grid-template-columns: 320px 1fr; flex: 1; }
+        .sidebar { background: #1a1a1a; border-right: 1px solid #333; overflow-y: auto; max-height: calc(100vh - 200px); }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid #333; }
+        .search-input { width: 100%; padding: 8px; background: #141414; border: 1px solid #333; border-radius: 5px; color: #fff; margin-top: 10px; }
+        #contentList { padding: 10px; }
+        .content-item { padding: 10px; margin: 5px 0; background: #222; border-radius: 5px; cursor: pointer; transition: all 0.2s; }
+        .content-item:hover { background: #333; transform: translateX(3px); }
+        .content-item.active { background: #e50914; }
+        .video-section { padding: 20px 30px; overflow-y: auto; }
+        .video-container { position: relative; background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 15px; }
+        #videoPlayer { width: 100%; min-height: 400px; background: #000; }
+        .video-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, #1a1a1a, #2a2a2a); display: flex; align-items: center; justify-content: center; z-index: 10; }
+        .video-overlay.hidden { display: none; }
+        #nowPlaying { background: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #e50914; }
+        .debug-console { background: #1a1a1a; border-radius: 8px; padding: 15px; margin-top: 20px; max-height: 300px; overflow-y: auto; }
+        #debugLog { font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.8; }
+        .debug-log-item { padding: 3px 0; border-bottom: 1px solid #222; }
+        .debug-log-item.success { color: #4ade80; }
+        .debug-log-item.error { color: #f87171; }
+        .debug-log-item.warning { color: #fbbf24; }
+        .debug-log-item.info { color: #60a5fa; }
+        .info-box { background: #1a1a1a; border-left: 4px solid #fbbf24; padding: 15px 20px; margin: 20px 30px; border-radius: 6px; }
+        .info-box h4 { color: #fbbf24; margin-bottom: 10px; }
+        .info-box p { font-size: 13px; margin-bottom: 8px; }
+        footer { background: #1a1a1a; padding: 15px 30px; text-align: center; border-top: 1px solid #333; font-size: 12px; color: #666; }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
             <div class="logo"><h1>📺 IPTV Player</h1></div>
             <div class="input-group">
-                <input type="text" id="m3uUrl" placeholder="URL M3U/M3U8" 
-                       value="https://iptv-org.github.io/iptv/countries/es.m3u">
+                <input type="text" id="m3uUrl" placeholder="URL M3U/M3U8" value="https://iptv-org.github.io/iptv/countries/es.m3u">
                 <button id="loadBtn" class="btn-primary">Cargar</button>
                 <input type="file" id="m3uFile" accept=".m3u,.m3u8" style="display: none;">
-                <button id="fileBtn" class="btn-secondary">📁</button>
+                <button id="fileBtn" class="btn-secondary">📁 Archivo</button>
             </div>
         </header>
         <div class="settings-bar">
@@ -23,28 +64,30 @@
                 <label><input type="checkbox" id="useCorsProxy" checked> 🔓 Usar Proxy CORS</label>
             </div>
             <div class="setting-item">
-                <select id="corsProxySelect">
+                <label>Proxy:</label>
+                <select id="corsProxySelect" style="padding: 5px; background: #222; color: #fff; border: 1px solid #333; border-radius: 4px;">
                     <option value="https://corsproxy.io/?">corsproxy.io</option>
                     <option value="https://api.allorigins.win/raw?url=">allorigins.win</option>
-                    <option value="">Directo</option>
+                    <option value="">Directo (sin proxy)</option>
                 </select>
             </div>
-            <button id="testProxyBtn" class="btn-secondary" style="padding: 5px 15px;">🧪 Test</button>
+            <button id="testProxyBtn" class="btn-secondary" style="padding: 5px 15px; font-size: 12px;">🧪 Probar Proxy</button>
         </div>
         <div class="tabs">
-            <button class="tab active" data-tab="live">📺 TV</button>
+            <button class="tab active" data-tab="live">📺 TV en Vivo</button>
             <button class="tab" data-tab="movies">🎬 Películas</button>
             <button class="tab" data-tab="series">📺 Series</button>
         </div>
         <div class="main-content">
             <aside class="sidebar">
-                <div style="padding: 20px;">
-                    <h3 id="sidebarTitle">Canales</h3>
-                    <input type="text" id="searchInput" placeholder="🔍 Buscar...">
+                <div class="sidebar-header">
+                    <h3 id="sidebarTitle">Canales en Vivo</h3>
+                    <input type="text" id="searchInput" placeholder="🔍 Buscar..." class="search-input">
                 </div>
-                <div id="contentList" style="padding: 10px;">
+                <div id="contentList">
                     <div style="text-align: center; color: #666; padding: 40px 20px;">
-                        <p>📋 Carga una playlist</p>
+                        <p>📋 Carga una playlist para comenzar</p>
+                        <p style="font-size: 11px; margin-top: 10px;">El proxy CORS está activado</p>
                     </div>
                 </div>
             </aside>
@@ -53,25 +96,37 @@
                     <video id="videoPlayer" controls></video>
                     <div class="video-overlay" id="videoOverlay">
                         <div style="text-align: center; padding: 40px;">
-                            <h2>Bienvenido</h2>
-                            <p>Proxy CORS activado</p>
-                            <button class="btn-primary" onclick="document.getElementById('loadBtn').click()">Cargar Playlist</button>
+                            <h2>Bienvenido a IPTV Player</h2>
+                            <p style="color: #999; margin: 15px 0;">Solución integrada para errores CORS y autoplay</p>
+                            <button class="btn-primary" onclick="document.getElementById('loadBtn').click()" style="margin-top: 20px;">Cargar Playlist de Ejemplo</button>
                         </div>
                     </div>
                 </div>
                 <div id="nowPlaying" style="display: none;">
-                    <h2 id="contentTitle">-</h2>
+                    <h2 id="contentTitle" style="margin-bottom: 5px;">-</h2>
+                    <p id="contentMeta" style="color: #999; font-size: 14px;">-</p>
                 </div>
                 <div class="debug-console" id="debugConsole">
-                    <h4>🔧 Debug</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <h4 style="color: #e50914;">🔧 Consola de Depuración</h4>
+                        <div>
+                            <button onclick="logger.clear()" style="padding: 5px 10px; background: #222; border: 1px solid #333; color: white; border-radius: 5px; cursor: pointer; margin-right: 5px;">🗑️ Limpiar</button>
+                            <button onclick="document.getElementById('debugConsole').style.display='none'" style="padding: 5px 10px; background: #e50914; border: none; color: white; border-radius: 5px; cursor: pointer;">Cerrar</button>
+                        </div>
+                    </div>
                     <div id="debugLog"></div>
                 </div>
             </main>
         </div>
         <div class="info-box">
-            <h4>💡 Error CORS?</h4>
-            <p>El proxy está activado. Si falla, prueba otro de la lista.</p>
+            <h4>💡 Información</h4>
+            <p><strong>Autoplay bloqueado?</strong> Haz clic en el botón ▶️ REPRODUCIR que aparece</p>
+            <p><strong>Error CORS?</strong> El proxy está activado. Si falla, cambia el proxy arriba</p>
+            <p><strong>Error en video?</strong> Mira la consola de depuración para detalles</p>
         </div>
+        <footer>
+            <p><strong>⚠️ AVISO LEGAL:</strong> Esta aplicación no proporciona contenido. Solo reproduce fuentes legales.</p>
+        </footer>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
     <script src="js/config.js"></script>
