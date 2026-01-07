@@ -3,95 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Web Player</title>
+    <title>IPTV Player - CORS Fixed</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <div class="logo">
-                <h1>📺 IPTV Player</h1>
-            </div>
+            <div class="logo"><h1>📺 IPTV Player</h1></div>
             <div class="input-group">
-                <input type="text" id="m3uUrl" placeholder="URL de playlist M3U/M3U8" 
+                <input type="text" id="m3uUrl" placeholder="URL M3U/M3U8" 
                        value="https://iptv-org.github.io/iptv/countries/es.m3u">
-                <button id="loadBtn" class="btn-primary">Cargar Playlist</button>
+                <button id="loadBtn" class="btn-primary">Cargar</button>
                 <input type="file" id="m3uFile" accept=".m3u,.m3u8" style="display: none;">
-                <button id="fileBtn" class="btn-secondary">📁 Archivo</button>
+                <button id="fileBtn" class="btn-secondary">📁</button>
             </div>
         </header>
-
-        <!-- Tabs de navegación -->
+        <div class="settings-bar">
+            <div class="setting-item">
+                <label><input type="checkbox" id="useCorsProxy" checked> 🔓 Usar Proxy CORS</label>
+            </div>
+            <div class="setting-item">
+                <select id="corsProxySelect">
+                    <option value="https://corsproxy.io/?">corsproxy.io</option>
+                    <option value="https://api.allorigins.win/raw?url=">allorigins.win</option>
+                    <option value="">Directo</option>
+                </select>
+            </div>
+            <button id="testProxyBtn" class="btn-secondary" style="padding: 5px 15px;">🧪 Test</button>
+        </div>
         <div class="tabs">
-            <button class="tab active" data-tab="live">📺 TV en Vivo</button>
+            <button class="tab active" data-tab="live">📺 TV</button>
             <button class="tab" data-tab="movies">🎬 Películas</button>
             <button class="tab" data-tab="series">📺 Series</button>
         </div>
-
         <div class="main-content">
-            <!-- Sidebar con contenido según tab activo -->
             <aside class="sidebar">
-                <div class="sidebar-header">
-                    <h3 id="sidebarTitle">Canales en Vivo</h3>
-                    <input type="text" id="searchInput" placeholder="🔍 Buscar..." class="search-input">
+                <div style="padding: 20px;">
+                    <h3 id="sidebarTitle">Canales</h3>
+                    <input type="text" id="searchInput" placeholder="🔍 Buscar...">
                 </div>
-                <div class="content-list" id="contentList">
-                    <div class="empty-state">
-                        <p>📋 Carga una playlist para comenzar</p>
+                <div id="contentList" style="padding: 10px;">
+                    <div style="text-align: center; color: #666; padding: 40px 20px;">
+                        <p>📋 Carga una playlist</p>
                     </div>
                 </div>
             </aside>
-
-            <!-- Área principal de video -->
             <main class="video-section">
                 <div class="video-container">
-                    <video id="videoPlayer" controls playsinline></video>
+                    <video id="videoPlayer" controls></video>
                     <div class="video-overlay" id="videoOverlay">
-                        <div class="welcome-message">
-                            <h2>Bienvenido a IPTV Web Player</h2>
-                            <p>Carga una playlist para comenzar</p>
-                            <button class="btn-primary" onclick="document.getElementById('loadBtn').click()" 
-                                    style="margin-top: 20px;">Cargar Playlist de Ejemplo</button>
+                        <div style="text-align: center; padding: 40px;">
+                            <h2>Bienvenido</h2>
+                            <p>Proxy CORS activado</p>
+                            <button class="btn-primary" onclick="document.getElementById('loadBtn').click()">Cargar Playlist</button>
                         </div>
                     </div>
                 </div>
-
-                <!-- Now Playing Info -->
-                <div class="now-playing" id="nowPlaying" style="display: none;">
-                    <div class="now-playing-content">
-                        <img id="contentLogo" src="" alt="Logo" class="content-logo">
-                        <div class="content-info">
-                            <span class="content-badge" id="contentBadge">EN VIVO</span>
-                            <h2 id="contentTitle">-</h2>
-                            <p id="contentMeta">-</p>
-                        </div>
-                    </div>
+                <div id="nowPlaying" style="display: none;">
+                    <h2 id="contentTitle">-</h2>
                 </div>
-
-                <!-- Debug Console -->
                 <div class="debug-console" id="debugConsole">
-                    <h4>🔧 Consola de Depuración</h4>
+                    <h4>🔧 Debug</h4>
                     <div id="debugLog"></div>
-                    <button onclick="document.getElementById('debugConsole').style.display='none'" 
-                            style="margin-top: 10px; padding: 5px 10px; background: #e50914; border: none; color: white; border-radius: 5px; cursor: pointer;">
-                        Cerrar
-                    </button>
                 </div>
             </main>
         </div>
+        <div class="info-box">
+            <h4>💡 Error CORS?</h4>
+            <p>El proxy está activado. Si falla, prueba otro de la lista.</p>
+        </div>
     </div>
-
-    <!-- Footer -->
-    <footer>
-        <p><strong>⚠️ AVISO LEGAL:</strong> Esta aplicación no proporciona contenido. 
-        Solo reproduce fuentes legales a las que el usuario tenga acceso autorizado.</p>
-    </footer>
-
-    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/logger.js"></script>
+    <script src="js/cors-handler.js"></script>
     <script src="js/parser.js"></script>
     <script src="js/player.js"></script>
     <script src="js/app.js"></script>

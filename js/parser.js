@@ -5,128 +5,84 @@ class M3UParser {
         this.series = [];
         this.allContent = [];
     }
-
     parse(content) {
-        logger.info('Iniciando parseo de playlist...');
+        logger.info('Parseando playlist...');
         const lines = content.split('\n').filter(l => l.trim());
         const items = [];
         let current = null;
-
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-
             if (line.startsWith('#EXTINF:')) {
                 current = this.parseExtinf(line);
             } else if (line && !line.startsWith('#') && current) {
                 current.url = line;
+                current.originalUrl = line;
                 items.push(current);
                 current = null;
             }
         }
-
         this.allContent = items;
         this.categorizeContent(items);
-
-        logger.success(`Parseados ${items.length} items (${this.liveChannels.length} TV, ${this.movies.length} películas, ${this.series.length} series)`);
+        logger.success(`Parseados ${items.length} items`);
         return items;
     }
-
     parseExtinf(line) {
-        const item = {
-            name: 'Sin nombre',
-            logo: '',
-            group: 'General',
-            url: '',
-            type: 'live' // Por defecto TV en vivo
-        };
-
-        // Logo
+        const item = { name: 'Sin nombre', logo: '', group: 'General', url: '', originalUrl: '', type: 'live' };
         const logoM = line.match(/tvg-logo="([^"]*)"/);
         if (logoM) item.logo = logoM[1];
-
-        // Grupo
         const groupM = line.match(/group-title="([^"]*)"/);
         if (groupM) item.group = groupM[1];
-
-        // Nombre
         const parts = line.split(',');
-        if (parts.length > 1) {
-            item.name = parts[parts.length - 1].trim();
-        }
-
-        // Detectar tipo de contenido
+        if (parts.length > 1) item.name = parts[parts.length - 1].trim();
         item.type = this.detectContentType(item.name, item.group);
-
         return item;
     }
-
     detectContentType(name, group) {
         const text = (name + ' ' + group).toLowerCase();
-
-        // Detectar películas
         for (const keyword of CONFIG.VOD_KEYWORDS.MOVIES) {
-            if (text.includes(keyword)) {
-                return 'movie';
-            }
+            if (text.includes(keyword)) return 'movie';
         }
-
-        // Detectar series
         for (const keyword of CONFIG.VOD_KEYWORDS.SERIES) {
-            if (text.includes(keyword)) {
-                return 'series';
-            }
+            if (text.includes(keyword)) return 'series';
         }
-
-        // Por defecto es TV en vivo
         return 'live';
     }
-
     categorizeContent(items) {
         this.liveChannels = items.filter(i => i.type === 'live');
         this.movies = items.filter(i => i.type === 'movie');
         this.series = items.filter(i => i.type === 'series');
-
-        logger.info(`Categorizado: ${this.liveChannels.length} canales, ${this.movies.length} películas, ${this.series.length} series`);
     }
-
     async loadFromUrl(url) {
-        logger.info('Cargando desde URL: ' + url);
+        const processedUrl = corsHandler.processUrl(url);
+        logger.info('Cargando: ' + processedUrl.substring(0, 80) + '...');
         try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
+            const response = await fetch(processedUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const content = await response.text();
-            logger.success('Playlist descargada correctamente');
+            logger.success('Playlist descargada');
             return this.parse(content);
         } catch (error) {
-            logger.error('Error cargando playlist: ' + error.message);
+            logger.error('Error: ' + error.message);
+            if (error.message.includes('CORS') || error.message.includes('Failed')) {
+                logger.error('❌ ERROR CORS - Activa el proxy arriba');
+            }
             throw error;
         }
     }
-
     async loadFromFile(file) {
-        logger.info('Cargando desde archivo: ' + file.name);
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const items = this.parse(e.target.result);
-                    logger.success('Archivo cargado correctamente');
-                    resolve(items);
+                    resolve(this.parse(e.target.result));
                 } catch (error) {
-                    logger.error('Error parseando archivo: ' + error.message);
                     reject(error);
                 }
             };
-            reader.onerror = () => {
-                logger.error('Error leyendo archivo');
-                reject(reader.error);
-            };
+            reader.onerror = () => reject(reader.error);
             reader.readAsText(file);
         });
     }
-
     filterByName(items, term) {
         if (!term) return items;
         term = term.toLowerCase();
@@ -135,7 +91,6 @@ class M3UParser {
             item.group.toLowerCase().includes(term)
         );
     }
-
     getByType(type) {
         switch(type) {
             case 'live': return this.liveChannels;
