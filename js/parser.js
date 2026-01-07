@@ -1,61 +1,147 @@
 class M3UParser {
     constructor() {
-        this.channels = [];
+        this.liveChannels = [];
+        this.movies = [];
+        this.series = [];
+        this.allContent = [];
     }
 
     parse(content) {
+        logger.info('Iniciando parseo de playlist...');
         const lines = content.split('\n').filter(l => l.trim());
-        const channels = [];
+        const items = [];
         let current = null;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
+
             if (line.startsWith('#EXTINF:')) {
                 current = this.parseExtinf(line);
             } else if (line && !line.startsWith('#') && current) {
                 current.url = line;
-                channels.push(current);
+                items.push(current);
                 current = null;
             }
         }
 
-        this.channels = channels;
-        console.log(`📋 ${channels.length} canales cargados`);
-        return channels;
+        this.allContent = items;
+        this.categorizeContent(items);
+
+        logger.success(`Parseados ${items.length} items (${this.liveChannels.length} TV, ${this.movies.length} películas, ${this.series.length} series)`);
+        return items;
     }
 
     parseExtinf(line) {
-        const ch = { name: 'Canal', logo: '', group: 'General', url: '' };
+        const item = {
+            name: 'Sin nombre',
+            logo: '',
+            group: 'General',
+            url: '',
+            type: 'live' // Por defecto TV en vivo
+        };
+
+        // Logo
         const logoM = line.match(/tvg-logo="([^"]*)"/);
-        if (logoM) ch.logo = logoM[1];
+        if (logoM) item.logo = logoM[1];
+
+        // Grupo
         const groupM = line.match(/group-title="([^"]*)"/);
-        if (groupM) ch.group = groupM[1];
+        if (groupM) item.group = groupM[1];
+
+        // Nombre
         const parts = line.split(',');
-        if (parts.length > 1) ch.name = parts[parts.length - 1].trim();
-        return ch;
+        if (parts.length > 1) {
+            item.name = parts[parts.length - 1].trim();
+        }
+
+        // Detectar tipo de contenido
+        item.type = this.detectContentType(item.name, item.group);
+
+        return item;
+    }
+
+    detectContentType(name, group) {
+        const text = (name + ' ' + group).toLowerCase();
+
+        // Detectar películas
+        for (const keyword of CONFIG.VOD_KEYWORDS.MOVIES) {
+            if (text.includes(keyword)) {
+                return 'movie';
+            }
+        }
+
+        // Detectar series
+        for (const keyword of CONFIG.VOD_KEYWORDS.SERIES) {
+            if (text.includes(keyword)) {
+                return 'series';
+            }
+        }
+
+        // Por defecto es TV en vivo
+        return 'live';
+    }
+
+    categorizeContent(items) {
+        this.liveChannels = items.filter(i => i.type === 'live');
+        this.movies = items.filter(i => i.type === 'movie');
+        this.series = items.filter(i => i.type === 'series');
+
+        logger.info(`Categorizado: ${this.liveChannels.length} canales, ${this.movies.length} películas, ${this.series.length} series`);
     }
 
     async loadFromUrl(url) {
-        console.log('🌐 Cargando playlist...');
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return this.parse(await res.text());
+        logger.info('Cargando desde URL: ' + url);
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const content = await response.text();
+            logger.success('Playlist descargada correctamente');
+            return this.parse(content);
+        } catch (error) {
+            logger.error('Error cargando playlist: ' + error.message);
+            throw error;
+        }
     }
 
     async loadFromFile(file) {
+        logger.info('Cargando desde archivo: ' + file.name);
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (e) => resolve(this.parse(e.target.result));
-            reader.onerror = () => reject(reader.error);
+            reader.onload = (e) => {
+                try {
+                    const items = this.parse(e.target.result);
+                    logger.success('Archivo cargado correctamente');
+                    resolve(items);
+                } catch (error) {
+                    logger.error('Error parseando archivo: ' + error.message);
+                    reject(error);
+                }
+            };
+            reader.onerror = () => {
+                logger.error('Error leyendo archivo');
+                reject(reader.error);
+            };
             reader.readAsText(file);
         });
     }
 
-    filterByName(term) {
-        if (!term) return this.channels;
+    filterByName(items, term) {
+        if (!term) return items;
         term = term.toLowerCase();
-        return this.channels.filter(ch => 
-            ch.name.toLowerCase().includes(term) || ch.group.toLowerCase().includes(term)
+        return items.filter(item => 
+            item.name.toLowerCase().includes(term) || 
+            item.group.toLowerCase().includes(term)
         );
+    }
+
+    getByType(type) {
+        switch(type) {
+            case 'live': return this.liveChannels;
+            case 'movies': return this.movies;
+            case 'series': return this.series;
+            default: return this.allContent;
+        }
     }
 }

@@ -2,153 +2,280 @@ class IPTVApp {
     constructor() {
         this.player = null;
         this.parser = new M3UParser();
-        this.currentChannels = [];
+        this.currentTab = 'live';
+        this.currentContent = [];
         this.init();
     }
 
     init() {
+        logger.init();
+        logger.success('Iniciando aplicación IPTV Player...');
+
         this.player = new IPTVPlayer(document.getElementById('videoPlayer'));
         this.setupEvents();
-        this.loadTMDB();
-        this.restorePlaylist();
-        console.log('✅ App inicializada');
+        this.restoreState();
+
+        logger.success('Aplicación lista');
+
+        // Mostrar debug console al inicio
+        document.getElementById('debugConsole').style.display = 'block';
     }
 
     setupEvents() {
+        // Botón cargar playlist
         document.getElementById('loadBtn').onclick = () => this.loadFromUrl();
+
+        // Enter en input URL
         document.getElementById('m3uUrl').onkeypress = (e) => {
             if (e.key === 'Enter') this.loadFromUrl();
         };
+
+        // Botón cargar archivo
         document.getElementById('fileBtn').onclick = () => {
             document.getElementById('m3uFile').click();
         };
+
+        // Archivo seleccionado
         document.getElementById('m3uFile').onchange = (e) => {
-            if (e.target.files[0]) this.loadFromFile(e.target.files[0]);
+            if (e.target.files[0]) {
+                this.loadFromFile(e.target.files[0]);
+            }
         };
-        document.getElementById('searchChannel').oninput = (e) => {
-            this.filterChannels(e.target.value);
+
+        // Búsqueda
+        document.getElementById('searchInput').oninput = (e) => {
+            this.filterContent(e.target.value);
         };
-        document.querySelector('.close-modal').onclick = () => this.closeModal();
+
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.onclick = () => {
+                const tabType = tab.dataset.tab;
+                this.switchTab(tabType);
+            };
+        });
+
+        logger.info('Eventos configurados');
     }
 
     async loadFromUrl() {
         const url = document.getElementById('m3uUrl').value.trim();
+
         if (!url) {
-            alert('Ingresa una URL');
+            alert('Por favor ingresa una URL');
             return;
         }
 
+        logger.info('═══════════════════════════════');
+        logger.info('CARGANDO NUEVA PLAYLIST');
+        logger.info('═══════════════════════════════');
+
+        this.showLoading();
+
         try {
-            this.showLoading();
-            const channels = await this.parser.loadFromUrl(url);
+            await this.parser.loadFromUrl(url);
             localStorage.setItem(CONFIG.STORAGE_KEYS.PLAYLIST_URL, url);
-            this.currentChannels = channels;
-            this.renderChannels(channels);
+            this.switchTab(this.currentTab);
+            logger.success('Playlist cargada y procesada correctamente');
         } catch (error) {
-            alert('Error al cargar playlist: ' + error.message);
+            logger.error('Error fatal al cargar playlist: ' + error.message);
+            alert('Error al cargar la playlist:\n' + error.message);
+            this.hideLoading();
         }
     }
 
     async loadFromFile(file) {
+        logger.info('═══════════════════════════════');
+        logger.info('CARGANDO ARCHIVO LOCAL');
+        logger.info('═══════════════════════════════');
+
+        this.showLoading();
+
         try {
-            this.showLoading();
-            const channels = await this.parser.loadFromFile(file);
-            this.currentChannels = channels;
-            this.renderChannels(channels);
+            await this.parser.loadFromFile(file);
+            this.switchTab(this.currentTab);
+            logger.success('Archivo cargado y procesado correctamente');
         } catch (error) {
-            alert('Error al cargar archivo: ' + error.message);
+            logger.error('Error al cargar archivo: ' + error.message);
+            alert('Error al cargar el archivo:\n' + error.message);
+            this.hideLoading();
         }
     }
 
-    renderChannels(channels) {
-        const list = document.getElementById('channelList');
+    switchTab(tabType) {
+        logger.info(`Cambiando a pestaña: ${tabType}`);
+
+        this.currentTab = tabType;
+        localStorage.setItem(CONFIG.STORAGE_KEYS.LAST_TAB, tabType);
+
+        // Actualizar UI de tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.dataset.tab === tabType) {
+                tab.classList.add('active');
+            }
+        });
+
+        // Actualizar título del sidebar
+        const titles = {
+            'live': 'Canales en Vivo',
+            'movies': 'Películas VOD',
+            'series': 'Series VOD'
+        };
+        document.getElementById('sidebarTitle').textContent = titles[tabType] || 'Contenido';
+
+        // Cargar contenido según el tab
+        let content = [];
+        switch(tabType) {
+            case 'live':
+                content = this.parser.liveChannels;
+                break;
+            case 'movies':
+                content = this.parser.movies;
+                break;
+            case 'series':
+                content = this.parser.series;
+                break;
+        }
+
+        this.currentContent = content;
+        this.renderContent(content);
+
+        logger.success(`${content.length} items en esta categoría`);
+    }
+
+    renderContent(items) {
+        const list = document.getElementById('contentList');
         list.innerHTML = '';
 
-        if (channels.length === 0) {
-            list.innerHTML = '<div class="empty-state"><p>❌ Sin canales</p></div>';
+        if (items.length === 0) {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <p>📭 No hay contenido en esta categoría</p>
+                    <p style="font-size: 12px; margin-top: 10px;">
+                        Prueba cargando una playlist o cambia de pestaña
+                    </p>
+                </div>
+            `;
             return;
         }
 
-        channels.forEach((ch, i) => {
+        logger.info(`Renderizando ${items.length} items...`);
+
+        items.forEach((item, index) => {
             const div = document.createElement('div');
-            div.className = 'channel-item';
+            div.className = 'content-item';
+
+            const badgeText = {
+                'live': 'LIVE',
+                'movie': 'PELÍCULA',
+                'series': 'SERIE'
+            }[item.type] || 'VOD';
+
             div.innerHTML = `
-                <img src="${ch.logo || 'https://via.placeholder.com/40?text=TV'}" 
-                     onerror="this.src='https://via.placeholder.com/40?text=TV'">
-                <div class="channel-item-info">
-                    <div class="channel-item-name">${ch.name}</div>
-                    <div class="channel-item-group">${ch.group}</div>
+                <img src="${item.logo || 'https://via.placeholder.com/50?text=' + badgeText}" 
+                     onerror="this.src='https://via.placeholder.com/50?text=${badgeText}'">
+                <div class="content-item-info">
+                    <div class="content-item-name">${item.name}</div>
+                    <div class="content-item-meta">
+                        <span class="content-badge-small">${badgeText}</span>
+                        ${item.group}
+                    </div>
                 </div>
             `;
-            div.onclick = () => this.playChannel(ch, div);
+
+            div.onclick = () => {
+                logger.info('═══════════════════════════════');
+                logger.info(`REPRODUCIENDO: ${item.name}`);
+                logger.info('═══════════════════════════════');
+                this.playContent(item, div);
+            };
+
             list.appendChild(div);
         });
     }
 
-    playChannel(channel, el) {
-        document.querySelectorAll('.channel-item').forEach(i => i.classList.remove('active'));
-        el?.classList.add('active');
-        this.player.loadStream(channel.url, channel);
-        this.showNowPlaying(channel);
+    playContent(content, element) {
+        // Remover active de todos
+        document.querySelectorAll('.content-item').forEach(item => {
+            item.classList.remove('active');
+        });
+
+        // Añadir active al seleccionado
+        if (element) {
+            element.classList.add('active');
+        }
+
+        // Reproducir
+        this.player.loadStream(content.url, content);
+
+        // Mostrar info
+        this.showNowPlaying(content);
     }
 
-    showNowPlaying(ch) {
+    showNowPlaying(content) {
         const np = document.getElementById('nowPlaying');
-        document.getElementById('channelLogo').src = ch.logo || 'https://via.placeholder.com/80?text=TV';
-        document.getElementById('channelName').textContent = ch.name;
-        document.getElementById('channelGroup').textContent = ch.group;
+        const logo = document.getElementById('contentLogo');
+        const title = document.getElementById('contentTitle');
+        const meta = document.getElementById('contentMeta');
+        const badge = document.getElementById('contentBadge');
+
+        logo.src = content.logo || 'https://via.placeholder.com/70?text=' + content.type.toUpperCase();
+        logo.onerror = () => {
+            logo.src = 'https://via.placeholder.com/70?text=' + content.type.toUpperCase();
+        };
+
+        title.textContent = content.name;
+        meta.textContent = content.group;
+
+        const badgeTexts = {
+            'live': 'EN VIVO',
+            'movie': 'PELÍCULA',
+            'series': 'SERIE'
+        };
+        badge.textContent = badgeTexts[content.type] || 'VOD';
+        badge.style.background = content.type === 'live' ? '#e50914' : '#0ea5e9';
+
         np.style.display = 'block';
     }
 
-    filterChannels(term) {
-        this.renderChannels(this.parser.filterByName(term));
-    }
-
-    async loadTMDB() {
-        const movies = await tmdbService.getPopularMovies();
-        this.renderMedia(movies, 'moviesGrid', 'movie');
-        const series = await tmdbService.getPopularSeries();
-        this.renderMedia(series, 'seriesGrid', 'tv');
-    }
-
-    renderMedia(items, containerId, type) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-        items.slice(0, 6).forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'media-card';
-            const title = item.title || item.name;
-            const rating = item.vote_average?.toFixed(1) || 'N/A';
-            const year = (item.release_date || item.first_air_date || '').split('-')[0];
-            div.innerHTML = `
-                <img src="${tmdbService.getImageUrl(item.poster_path)}">
-                <div class="media-card-info">
-                    <div class="media-card-title">${title}</div>
-                    <div class="media-card-meta">
-                        <span>⭐ ${rating}</span>
-                        <span>${year}</span>
-                    </div>
-                </div>
-            `;
-            container.appendChild(div);
-        });
+    filterContent(searchTerm) {
+        const filtered = this.parser.filterByName(this.currentContent, searchTerm);
+        this.renderContent(filtered);
+        logger.info(`Filtrados: ${filtered.length} de ${this.currentContent.length} items`);
     }
 
     showLoading() {
-        document.getElementById('channelList').innerHTML = 
-            '<div class="empty-state"><p>⏳ Cargando...</p></div>';
+        document.getElementById('contentList').innerHTML = `
+            <div class="empty-state">
+                <p>⏳ Cargando playlist...</p>
+                <p style="font-size: 12px; margin-top: 10px;">Por favor espera...</p>
+            </div>
+        `;
     }
 
-    restorePlaylist() {
-        const saved = localStorage.getItem(CONFIG.STORAGE_KEYS.PLAYLIST_URL);
-        if (saved) document.getElementById('m3uUrl').value = saved;
+    hideLoading() {
+        // Se maneja automáticamente con renderContent
     }
 
-    closeModal() {
-        document.getElementById('mediaModal').classList.remove('active');
+    restoreState() {
+        // Restaurar URL de playlist
+        const savedUrl = localStorage.getItem(CONFIG.STORAGE_KEYS.PLAYLIST_URL);
+        if (savedUrl) {
+            document.getElementById('m3uUrl').value = savedUrl;
+            logger.info('URL de playlist restaurada: ' + savedUrl);
+        }
+
+        // Restaurar tab
+        const savedTab = localStorage.getItem(CONFIG.STORAGE_KEYS.LAST_TAB);
+        if (savedTab) {
+            this.currentTab = savedTab;
+            logger.info('Tab restaurado: ' + savedTab);
+        }
     }
 }
 
+// Iniciar aplicación cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new IPTVApp();
 });

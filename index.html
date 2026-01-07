@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Web Player</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -16,25 +14,31 @@
                 <h1>📺 IPTV Player</h1>
             </div>
             <div class="input-group">
-                <input type="text" id="m3uUrl" placeholder="Ingresa URL de playlist M3U/M3U8" 
+                <input type="text" id="m3uUrl" placeholder="URL de playlist M3U/M3U8" 
                        value="https://iptv-org.github.io/iptv/countries/es.m3u">
                 <button id="loadBtn" class="btn-primary">Cargar Playlist</button>
                 <input type="file" id="m3uFile" accept=".m3u,.m3u8" style="display: none;">
-                <button id="fileBtn" class="btn-secondary">Cargar Archivo</button>
+                <button id="fileBtn" class="btn-secondary">📁 Archivo</button>
             </div>
         </header>
 
+        <!-- Tabs de navegación -->
+        <div class="tabs">
+            <button class="tab active" data-tab="live">📺 TV en Vivo</button>
+            <button class="tab" data-tab="movies">🎬 Películas</button>
+            <button class="tab" data-tab="series">📺 Series</button>
+        </div>
+
         <div class="main-content">
-            <!-- Sidebar con lista de canales -->
+            <!-- Sidebar con contenido según tab activo -->
             <aside class="sidebar">
                 <div class="sidebar-header">
-                    <h3>Canales</h3>
-                    <input type="text" id="searchChannel" placeholder="🔍 Buscar canal..." class="search-input">
+                    <h3 id="sidebarTitle">Canales en Vivo</h3>
+                    <input type="text" id="searchInput" placeholder="🔍 Buscar..." class="search-input">
                 </div>
-                <div class="channel-list" id="channelList">
+                <div class="content-list" id="contentList">
                     <div class="empty-state">
                         <p>📋 Carga una playlist para comenzar</p>
-                        <p style="margin-top: 10px; font-size: 12px;">Haz clic en "Cargar Playlist"</p>
                     </div>
                 </div>
             </aside>
@@ -46,55 +50,48 @@
                     <div class="video-overlay" id="videoOverlay">
                         <div class="welcome-message">
                             <h2>Bienvenido a IPTV Web Player</h2>
-                            <p>Carga una playlist M3U/M3U8 para comenzar a ver</p>
+                            <p>Carga una playlist para comenzar</p>
+                            <button class="btn-primary" onclick="document.getElementById('loadBtn').click()" 
+                                    style="margin-top: 20px;">Cargar Playlist de Ejemplo</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Información del canal actual -->
+                <!-- Now Playing Info -->
                 <div class="now-playing" id="nowPlaying" style="display: none;">
                     <div class="now-playing-content">
-                        <img id="channelLogo" src="" alt="Logo" class="channel-logo">
-                        <div class="channel-info">
-                            <h2 id="channelName">-</h2>
-                            <p id="channelGroup">-</p>
+                        <img id="contentLogo" src="" alt="Logo" class="content-logo">
+                        <div class="content-info">
+                            <span class="content-badge" id="contentBadge">EN VIVO</span>
+                            <h2 id="contentTitle">-</h2>
+                            <p id="contentMeta">-</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sección de películas y series -->
-                <div class="media-section">
-                    <h3>🎬 Películas Populares</h3>
-                    <div class="media-grid" id="moviesGrid"></div>
-                </div>
-
-                <div class="media-section">
-                    <h3>📺 Series Populares</h3>
-                    <div class="media-grid" id="seriesGrid"></div>
+                <!-- Debug Console -->
+                <div class="debug-console" id="debugConsole">
+                    <h4>🔧 Consola de Depuración</h4>
+                    <div id="debugLog"></div>
+                    <button onclick="document.getElementById('debugConsole').style.display='none'" 
+                            style="margin-top: 10px; padding: 5px 10px; background: #e50914; border: none; color: white; border-radius: 5px; cursor: pointer;">
+                        Cerrar
+                    </button>
                 </div>
             </main>
         </div>
     </div>
 
-    <!-- Modal -->
-    <div class="modal" id="mediaModal">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <div id="mediaDetails"></div>
-        </div>
-    </div>
-
     <!-- Footer -->
     <footer>
-        <p><strong>⚠️ AVISO LEGAL:</strong> Esta aplicación no proporciona ni proporcionará contenido IPTV. 
-        Es un reproductor que permite visualizar fuentes de video a las que usted tenga acceso legal. 
-        El usuario es responsable de asegurar que tiene los derechos necesarios para acceder al contenido que reproduce.</p>
+        <p><strong>⚠️ AVISO LEGAL:</strong> Esta aplicación no proporciona contenido. 
+        Solo reproduce fuentes legales a las que el usuario tenga acceso autorizado.</p>
     </footer>
 
-    <!-- Scripts - Cargar en orden correcto -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
     <script src="js/config.js"></script>
-    <script src="js/tmdb.js"></script>
+    <script src="js/logger.js"></script>
     <script src="js/parser.js"></script>
     <script src="js/player.js"></script>
     <script src="js/app.js"></script>
