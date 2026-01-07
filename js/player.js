@@ -1,177 +1,120 @@
-// Clase para manejar el reproductor de video
 class IPTVPlayer {
-    constructor(videoElement) {
-        this.video = videoElement;
+    constructor(video) {
+        this.video = video;
         this.hls = null;
         this.currentChannel = null;
 
-        // Restaurar volumen guardado
-        const savedVolume = localStorage.getItem(CONFIG.STORAGE_KEYS.VOLUME);
-        if (savedVolume) {
-            this.video.volume = parseFloat(savedVolume);
-        }
+        const vol = localStorage.getItem(CONFIG.STORAGE_KEYS.VOLUME);
+        if (vol) this.video.volume = parseFloat(vol);
 
-        // Guardar volumen cuando cambie
         this.video.addEventListener('volumechange', () => {
             localStorage.setItem(CONFIG.STORAGE_KEYS.VOLUME, this.video.volume);
         });
 
-        // Eventos del reproductor
-        this.setupEvents();
-    }
-
-    // Configurar eventos del reproductor
-    setupEvents() {
-        this.video.addEventListener('loadstart', () => {
-            console.log('Cargando stream...');
-        });
-
         this.video.addEventListener('playing', () => {
-            console.log('Reproduciendo...');
-            document.getElementById('videoOverlay').classList.add('hidden');
+            console.log('▶️ Reproduciendo');
+            document.getElementById('videoOverlay')?.classList.add('hidden');
         });
 
-        this.video.addEventListener('error', (e) => {
-            console.error('Error en el reproductor:', e);
-            this.handleError();
-        });
+        this.video.addEventListener('error', () => this.handleError());
 
-        this.video.addEventListener('waiting', () => {
-            console.log('Buffering...');
-        });
+        console.log('✅ Player listo');
     }
 
-    // Cargar y reproducir un stream
     loadStream(url, channel) {
+        console.log('🎬 Cargando:', channel.name);
         this.currentChannel = channel;
-
-        // Limpiar reproductor anterior
         this.cleanup();
 
-        // Detectar tipo de stream
-        if (url.includes('.m3u8') || url.includes('m3u8')) {
-            this.loadHLSStream(url);
-        } else {
-            this.loadDirectStream(url);
-        }
+        const isHLS = url.includes('.m3u8') || url.includes('/hls/');
 
-        // Guardar último canal reproducido
-        if (channel) {
-            localStorage.setItem(CONFIG.STORAGE_KEYS.LAST_CHANNEL, JSON.stringify(channel));
+        if (isHLS) {
+            this.loadHLS(url);
+        } else {
+            this.loadDirect(url);
         }
     }
 
-    // Cargar stream HLS (m3u8)
-    loadHLSStream(url) {
+    loadHLS(url) {
+        if (typeof Hls === 'undefined') {
+            alert('Error: HLS.js no cargado. Recarga la página.');
+            return;
+        }
+
         if (Hls.isSupported()) {
+            console.log('✅ Usando HLS.js');
             this.hls = new Hls({
                 debug: false,
                 enableWorker: true,
-                lowLatencyMode: true,
-                backBufferLength: 90
+                xhrSetup: (xhr) => { xhr.withCredentials = false; }
             });
 
             this.hls.loadSource(url);
             this.hls.attachMedia(this.video);
 
             this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                console.log('Manifest HLS cargado');
+                console.log('✅ Manifest cargado');
                 this.video.play().catch(e => {
-                    console.log('Autoplay bloqueado:', e);
+                    console.log('⚠️ Autoplay bloqueado');
+                    this.showPlayButton();
                 });
             });
 
             this.hls.on(Hls.Events.ERROR, (event, data) => {
-                console.error('Error HLS:', data);
+                console.error('❌ Error HLS:', data.details);
                 if (data.fatal) {
-                    this.handleHLSError(data);
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                        console.log('🔄 Reintentando...');
+                        setTimeout(() => this.hls?.startLoad(), 1000);
+                    } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                        console.log('🔄 Recuperando...');
+                        this.hls?.recoverMediaError();
+                    } else {
+                        this.handleError('Canal no disponible');
+                    }
                 }
             });
         } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Safari nativo
+            console.log('✅ HLS nativo (Safari)');
             this.video.src = url;
-            this.video.addEventListener('loadedmetadata', () => {
-                this.video.play().catch(e => {
-                    console.log('Autoplay bloqueado:', e);
-                });
-            });
+            this.video.load();
+            this.video.play().catch(() => this.showPlayButton());
         } else {
-            alert('Tu navegador no soporta reproducción HLS');
+            alert('Tu navegador no soporta HLS');
         }
     }
 
-    // Cargar stream directo (MP4, etc.)
-    loadDirectStream(url) {
+    loadDirect(url) {
+        console.log('📹 Stream directo');
         this.video.src = url;
         this.video.load();
-        this.video.play().catch(e => {
-            console.log('Autoplay bloqueado:', e);
-        });
+        this.video.play().catch(() => this.showPlayButton());
     }
 
-    // Manejar errores de HLS
-    handleHLSError(data) {
-        switch(data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-                console.error('Error de red, intentando recuperar...');
-                this.hls.startLoad();
-                break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-                console.error('Error de medios, intentando recuperar...');
-                this.hls.recoverMediaError();
-                break;
-            default:
-                console.error('Error fatal irrecuperable');
-                this.cleanup();
-                break;
-        }
+    showPlayButton() {
+        const overlay = document.getElementById('videoOverlay');
+        if (!overlay) return;
+        overlay.classList.remove('hidden');
+        overlay.innerHTML = '<div class="welcome-message"><h2>▶️ Clic para reproducir</h2></div>';
+        overlay.style.cursor = 'pointer';
+        overlay.onclick = () => {
+            this.video.play();
+            overlay.classList.add('hidden');
+        };
     }
 
-    // Manejar errores generales
-    handleError() {
-        setTimeout(() => {
-            const errorMsg = document.createElement('div');
-            errorMsg.style.cssText = `
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: rgba(229, 9, 20, 0.9);
-                padding: 20px;
-                border-radius: 8px;
-                color: white;
-                text-align: center;
-                z-index: 10;
-            `;
-            errorMsg.innerHTML = `
-                <h3>⚠️ Error de Reproducción</h3>
-                <p>No se pudo cargar el stream. Verifica la URL o prueba con otro canal.</p>
-            `;
-            this.video.parentElement.appendChild(errorMsg);
-
-            setTimeout(() => errorMsg.remove(), 5000);
-        }, 1000);
+    handleError(msg) {
+        console.error('💥 Error de reproducción');
+        alert(msg || 'No se pudo reproducir este canal. Prueba con otro.');
     }
 
-    // Limpiar reproductor
     cleanup() {
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;
         }
         this.video.pause();
-        this.video.src = '';
+        this.video.removeAttribute('src');
         this.video.load();
-    }
-
-    // Detener reproducción
-    stop() {
-        this.cleanup();
-        document.getElementById('videoOverlay').classList.remove('hidden');
-    }
-
-    // Obtener información del canal actual
-    getCurrentChannel() {
-        return this.currentChannel;
     }
 }
