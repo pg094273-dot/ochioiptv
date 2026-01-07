@@ -5,7 +5,7 @@ class IPTVPlayer {
         this.currentContent = null;
         this.isPlaying = false;
 
-        logger.info('Reproductor inicializado');
+        logger.success('Reproductor inicializado');
         this.setupEvents();
     }
 
@@ -37,32 +37,28 @@ class IPTVPlayer {
             const error = this.video.error;
             if (!error) return;
 
-            let errorMsg = 'Error desconocido';
+            let errorMsg = '';
             let suggestion = '';
 
             switch(error.code) {
                 case error.MEDIA_ERR_ABORTED:
-                    errorMsg = 'Carga abortada por el usuario';
+                    errorMsg = 'Carga abortada';
                     break;
                 case error.MEDIA_ERR_NETWORK:
                     errorMsg = 'Error de red al descargar el stream';
-                    suggestion = '• Stream puede estar offline\n• Verifica tu conexión a internet\n• Prueba otro canal';
-                    logger.warning('Posible causa: Stream offline o problemas de red');
+                    suggestion = '• Stream puede estar offline\n• Verifica tu conexión\n• Prueba otro canal';
                     break;
                 case error.MEDIA_ERR_DECODE:
                     errorMsg = 'Error al decodificar el video';
-                    suggestion = '• Formato de video incompatible\n• Codec no soportado\n• Prueba otro canal';
-                    logger.warning('Posible causa: Formato o codec incompatible');
+                    suggestion = '• Formato incompatible\n• Prueba otro canal';
                     break;
                 case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
                     errorMsg = 'Formato no soportado o URL inválida';
-                    suggestion = '• Si usa autenticación, DESACTIVA "Proxy CORS para Streams"\n• Verifica que la URL sea correcta\n• El formato puede no ser compatible';
-                    logger.error('⚠️ ERROR COMÚN CON AUTENTICACIÓN');
-                    logger.warning('SOLUCIÓN: Desactiva "Proxy CORS para Streams" en la configuración');
+                    suggestion = '• Verifica las credenciales Xtream\n• El stream puede no estar disponible\n• Prueba otro canal';
                     break;
             }
 
-            logger.error('Error en video element: ' + errorMsg);
+            logger.error('Error en video: ' + errorMsg);
 
             if (!this.isPlaying) {
                 this.handleError(errorMsg, suggestion);
@@ -71,9 +67,9 @@ class IPTVPlayer {
     }
 
     loadStream(url, content) {
-        logger.info('═══════════════════════════════');
+        logger.info('═══════════════════════════════════════');
         logger.info('CARGANDO STREAM');
-        logger.info('═══════════════════════════════');
+        logger.info('═══════════════════════════════════════');
         logger.info('Canal: ' + content.name);
         logger.info('Grupo: ' + content.group);
         logger.info('Tipo: ' + content.type.toUpperCase());
@@ -81,32 +77,20 @@ class IPTVPlayer {
         this.currentContent = content;
         this.cleanup();
 
-        // Mostrar URL original (primeros 100 chars)
-        logger.info('URL original: ' + url.substring(0, 100) + '...');
+        // Procesar URL
+        const processedUrl = xtreamAPI.processStreamUrl(url);
 
-        // Detectar si tiene autenticación en la URL
-        const hasAuth = url.includes('username=') || url.includes('password=');
-        if (hasAuth) {
-            logger.warning('⚠️ URL con autenticación detectada');
-            if (corsHandler.useProxyForStreams) {
-                logger.error('❌ PROXY ACTIVADO PARA STREAMS CON AUTENTICACIÓN');
-                logger.warning('SOLUCIÓN: Desactiva "Proxy CORS para Streams" arriba');
-            } else {
-                logger.success('✅ Proxy desactivado (correcto para autenticación)');
-            }
+        logger.info('URL original: ' + url.substring(0, 120) + '...');
+        if (processedUrl !== url) {
+            logger.info('URL procesada: ' + processedUrl.substring(0, 120) + '...');
         }
 
-        // Procesar URL con proxy SOLO si está activado para streams
-        const processedUrl = corsHandler.processStreamUrl(url);
-
-        logger.info('URL final: ' + processedUrl.substring(0, 100) + '...');
-
-        // Detectar tipo de stream
+        // Detectar tipo
         const urlLower = processedUrl.toLowerCase();
-        const isHLS = urlLower.includes('.m3u8') || urlLower.includes('/hls/');
+        const isHLS = urlLower.includes('.m3u8') || urlLower.includes('/hls/') || urlLower.includes('.ts');
 
-        logger.info('Formato detectado: ' + (isHLS ? 'HLS (m3u8)' : 'Stream directo'));
-        logger.info('═══════════════════════════════');
+        logger.info('Formato: ' + (isHLS ? 'HLS/MPEG-TS' : 'MP4/Stream directo'));
+        logger.info('═══════════════════════════════════════');
 
         if (isHLS) {
             this.loadHLS(processedUrl);
@@ -117,78 +101,50 @@ class IPTVPlayer {
 
     loadHLS(url) {
         if (typeof Hls === 'undefined') {
-            logger.error('HLS.js no está cargado');
-            this.handleError('Error crítico: HLS.js no disponible', 'Recarga la página');
+            logger.error('HLS.js no cargado');
+            this.handleError('HLS.js no disponible', 'Recarga la página');
             return;
         }
 
         if (Hls.isSupported()) {
-            logger.info('Usando HLS.js para reproducción');
+            logger.info('Usando HLS.js');
 
             this.hls = new Hls({
                 debug: false,
                 enableWorker: true,
-                maxBufferLength: 30,
-                maxMaxBufferLength: 600,
-                xhrSetup: function(xhr, url) {
+                xhrSetup: (xhr, url) => {
                     xhr.withCredentials = false;
                 }
             });
 
             this.hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
-                logger.success('✅ Manifest HLS parseado correctamente');
+                logger.success('✅ Manifest HLS cargado');
                 logger.info(`Calidades disponibles: ${data.levels.length}`);
-
-                data.levels.forEach((level, index) => {
-                    logger.info(`  Nivel ${index}: ${level.width}x${level.height} @ ${Math.round(level.bitrate/1000)}kbps`);
-                });
-
                 this.showPlayButton();
             });
 
-            this.hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
-                // Fragmento cargado correctamente
-            });
-
             this.hls.on(Hls.Events.ERROR, (event, data) => {
-                logger.error(`Error HLS: ${data.type} - ${data.details}`);
-
                 if (data.fatal) {
+                    logger.error(`Error HLS fatal: ${data.type} - ${data.details}`);
+
                     switch(data.details) {
                         case 'manifestLoadError':
-                            logger.error('══════════════════════════════');
-                            logger.error('ERROR: NO SE PUDO CARGAR MANIFEST');
-                            logger.error('══════════════════════════════');
-                            logger.warning('POSIBLES CAUSAS:');
-                            logger.info('1. Error CORS (necesita proxy)');
-                            logger.info('2. Stream offline o inaccesible');
-                            logger.info('3. Autenticación incorrecta');
-                            logger.info('');
-                            logger.warning('SOLUCIONES:');
-                            logger.info('• Si NO usa autenticación: Activa proxy');
-                            logger.info('• Si USA autenticación: Desactiva proxy para streams');
-                            logger.info('• Prueba con otro canal');
-                            logger.error('══════════════════════════════');
-
+                            logger.error('No se pudo cargar el manifest');
                             this.handleError(
-                                'No se pudo cargar el manifest del stream',
-                                '• Verifica configuración de proxy\n• Si usa autenticación, desactiva "Proxy CORS para Streams"\n• Prueba otro canal'
+                                'Error al cargar stream',
+                                '• Stream puede estar offline\n• Verifica credenciales Xtream\n• Prueba otro canal'
                             );
                             break;
 
                         case 'manifestParsingError':
-                            logger.error('Manifest corrupto o inválido');
-                            this.handleError('Manifest inválido', 'El stream tiene un formato incorrecto. Prueba otro canal.');
+                            this.handleError('Manifest inválido', 'Prueba otro canal');
                             break;
 
                         case 'levelLoadError':
                         case 'fragLoadError':
                             logger.warning('Error cargando fragmento, reintentando...');
                             setTimeout(() => {
-                                if (this.hls) {
-                                    logger.info('Reintentando carga...');
-                                    this.hls.startLoad();
-                                }
+                                if (this.hls) this.hls.startLoad();
                             }, 1000);
                             break;
 
@@ -202,47 +158,28 @@ class IPTVPlayer {
                                 logger.warning('Error de medios, recuperando...');
                                 if (this.hls) this.hls.recoverMediaError();
                             } else {
-                                logger.error('Error fatal irrecuperable');
-                                this.handleError('Error fatal en el stream', 'Prueba con otro canal');
+                                this.handleError('Error fatal', 'Prueba otro canal');
                                 this.cleanup();
                             }
                     }
                 }
             });
 
-            logger.info('Cargando source en HLS.js...');
             this.hls.loadSource(url);
             this.hls.attachMedia(this.video);
 
         } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-            logger.info('Usando HLS nativo del navegador (Safari)');
+            logger.info('Usando HLS nativo (Safari)');
             this.video.src = url;
-
-            this.video.addEventListener('loadedmetadata', () => {
-                logger.success('Metadata cargada');
-                this.showPlayButton();
-            }, { once: true });
-
+            this.video.addEventListener('loadedmetadata', () => this.showPlayButton(), { once: true });
             this.video.load();
-        } else {
-            logger.error('HLS no soportado en este navegador');
-            this.handleError(
-                'Tu navegador no soporta streaming HLS',
-                'Usa Chrome, Firefox, Edge o Safari'
-            );
         }
     }
 
     loadDirect(url) {
-        logger.info('Cargando stream directo...');
-
+        logger.info('Cargando stream directo (MP4)...');
         this.video.src = url;
-
-        this.video.addEventListener('loadedmetadata', () => {
-            logger.success('Metadata del stream cargada');
-            this.showPlayButton();
-        }, { once: true });
-
+        this.video.addEventListener('loadedmetadata', () => this.showPlayButton(), { once: true });
         this.video.load();
     }
 
@@ -252,60 +189,44 @@ class IPTVPlayer {
 
         overlay.classList.remove('hidden');
         overlay.innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <div style="font-size: 120px; margin-bottom: 20px; cursor: pointer; transition: transform 0.2s;" 
-                     onmouseover="this.style.transform='scale(1.1)'" 
+            <div style="text-align: center; padding: 50px;">
+                <div style="font-size: 140px; margin-bottom: 25px; cursor: pointer; transition: 0.3s;" 
+                     onmouseover="this.style.transform='scale(1.15)'" 
                      onmouseout="this.style.transform='scale(1)'">▶️</div>
-                <h2 style="margin-bottom: 15px; font-size: 32px;">Haz clic para reproducir</h2>
-                <p style="color: #999; margin-bottom: 25px; font-size: 17px;">
-                    El stream está listo y esperando
+                <h2 style="margin-bottom: 18px; font-size: 34px; font-weight: 700;">Listo para reproducir</h2>
+                <p style="color: #999; margin-bottom: 30px; font-size: 18px;">
+                    Haz clic para comenzar
                 </p>
                 <button class="btn-primary" id="playButton" 
-                        style="font-size: 20px; padding: 18px 50px; font-weight: bold;">
-                    ▶️ REPRODUCIR AHORA
+                        style="font-size: 22px; padding: 20px 60px; font-weight: bold; box-shadow: 0 4px 20px rgba(229,9,20,0.4);">
+                    ▶️ REPRODUCIR
                 </button>
             </div>
         `;
 
         const play = () => {
-            logger.info('Usuario inició reproducción manualmente');
+            logger.info('Usuario inició reproducción');
 
-            const playPromise = this.video.play();
+            this.video.play()
+                .then(() => {
+                    logger.success('✅ Reproducción iniciada');
+                    overlay.classList.add('hidden');
+                })
+                .catch(error => {
+                    logger.error('Error al reproducir: ' + error.message);
 
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        logger.success('✅ Reproducción iniciada exitosamente');
-                        overlay.classList.add('hidden');
-                    })
-                    .catch(error => {
-                        logger.error('Error al intentar reproducir: ' + error.message);
-                        logger.error('Error type: ' + error.name);
-
-                        if (error.name === 'NotAllowedError') {
-                            logger.warning('Navegador bloqueó la reproducción');
-                            alert('El navegador bloqueó la reproducción.\n\nHaz clic de nuevo en REPRODUCIR.');
-                        } else if (error.name === 'NotSupportedError') {
-                            logger.error('Formato de video no soportado');
-                            this.handleError(
-                                'Formato de video no compatible',
-                                '• Si usa autenticación, desactiva "Proxy CORS para Streams"\n• Prueba otro canal'
-                            );
-                        } else {
-                            logger.error('Error desconocido al reproducir');
-                            this.handleError(
-                                'No se pudo iniciar la reproducción',
-                                'Prueba con otro canal o verifica la configuración de proxy'
-                            );
-                        }
-                    });
-            }
+                    if (error.name === 'NotAllowedError') {
+                        alert('El navegador bloqueó la reproducción.\n\nHaz clic de nuevo en REPRODUCIR.');
+                    } else if (error.name === 'NotSupportedError') {
+                        this.handleError('Formato no compatible', 'Prueba otro canal');
+                    } else {
+                        this.handleError('No se pudo reproducir', 'Prueba otro canal');
+                    }
+                });
         };
 
         const playBtn = document.getElementById('playButton');
-        if (playBtn) {
-            playBtn.onclick = play;
-        }
+        if (playBtn) playBtn.onclick = play;
 
         overlay.onclick = (e) => {
             if (e.target === overlay || e.target.textContent.includes('▶️') || e.target.id === 'playButton') {
@@ -322,58 +243,39 @@ class IPTVPlayer {
             overlay.classList.remove('hidden');
             overlay.innerHTML = `
                 <div style="text-align: center; padding: 40px; max-width: 600px; margin: 0 auto;">
-                    <div style="font-size: 80px; margin-bottom: 20px;">⚠️</div>
-                    <h2 style="margin-bottom: 15px; color: #f87171; font-size: 26px;">Error de Reproducción</h2>
-                    <p style="color: #fff; font-size: 16px; margin-bottom: 20px; font-weight: 500;">
+                    <div style="font-size: 90px; margin-bottom: 25px;">⚠️</div>
+                    <h2 style="margin-bottom: 18px; color: #f87171; font-size: 28px; font-weight: 700;">Error de Reproducción</h2>
+                    <p style="color: #fff; font-size: 17px; margin-bottom: 25px; font-weight: 500;">
                         ${message}
                     </p>
                     ${suggestion ? `
-                        <div style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: 8px; padding: 15px; margin: 20px 0; text-align: left;">
-                            <p style="color: #fbbf24; font-size: 14px; font-weight: bold; margin-bottom: 8px;">💡 Posibles soluciones:</p>
-                            <p style="color: #999; white-space: pre-line; line-height: 1.8; font-size: 14px;">
+                        <div style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: 8px; padding: 18px; margin: 25px 0; text-align: left;">
+                            <p style="color: #fbbf24; font-size: 15px; font-weight: bold; margin-bottom: 10px;">💡 Posibles soluciones:</p>
+                            <p style="color: #ccc; white-space: pre-line; line-height: 1.8; font-size: 14px;">
                                 ${suggestion}
                             </p>
                         </div>
                     ` : ''}
                     <button class="btn-primary" 
                             onclick="document.getElementById('debugConsole').style.display='block'; document.getElementById('debugConsole').scrollIntoView({behavior: 'smooth'});" 
-                            style="margin-top: 20px; padding: 12px 30px;">
-                        🔧 Ver Consola de Depuración
+                            style="margin-top: 20px; padding: 14px 35px;">
+                        🔧 Ver Consola
                     </button>
                 </div>
             `;
-            overlay.style.cursor = 'default';
         }
 
         document.getElementById('debugConsole').style.display = 'block';
     }
 
     cleanup() {
-        logger.info('Limpiando reproductor...');
-
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;
         }
-
         this.video.pause();
         this.video.removeAttribute('src');
         this.video.load();
         this.isPlaying = false;
-    }
-
-    stop() {
-        logger.info('Deteniendo reproducción');
-        this.cleanup();
-        const overlay = document.getElementById('videoOverlay');
-        if (overlay) {
-            overlay.classList.remove('hidden');
-            overlay.innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <h2 style="font-size: 24px;">Reproducción detenida</h2>
-                    <p style="color: #999; margin-top: 10px;">Selecciona otro canal para continuar</p>
-                </div>
-            `;
-        }
     }
 }

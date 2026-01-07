@@ -3,14 +3,19 @@ class Logger {
         this.logElement = null;
         this.logs = [];
     }
+
     init() {
         this.logElement = document.getElementById('debugLog');
+        this.success('Logger inicializado');
     }
+
     log(msg, type = 'info') {
         const time = new Date().toLocaleTimeString();
         const entry = `[${time}] ${msg}`;
         console.log(entry);
-        this.logs.push({ msg: entry, type });
+
+        this.logs.push({ msg: entry, type, time: Date.now() });
+
         if (this.logElement) {
             const div = document.createElement('div');
             div.className = `debug-log-item ${type}`;
@@ -19,13 +24,19 @@ class Logger {
             this.logElement.scrollTop = this.logElement.scrollHeight;
         }
     }
+
     success(msg) { this.log('✅ ' + msg, 'success'); }
     error(msg) { this.log('❌ ' + msg, 'error'); }
     warning(msg) { this.log('⚠️ ' + msg, 'warning'); }
     info(msg) { this.log('ℹ️ ' + msg, 'info'); }
+
     clear() {
         this.logs = [];
-        if (this.logElement) this.logElement.innerHTML = '';
+        if (this.logElement) {
+            this.logElement.innerHTML = '';
+            this.info('Consola limpiada');
+        }
     }
 }
+
 const logger = new Logger();

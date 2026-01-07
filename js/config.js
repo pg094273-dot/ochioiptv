@@ -1,17 +1,14 @@
 const CONFIG = {
     STORAGE_KEYS: {
-        PLAYLIST_URL: 'iptv_playlist_url',
-        USE_PROXY_PLAYLIST: 'iptv_use_proxy_playlist',
-        USE_PROXY_STREAMS: 'iptv_use_proxy_streams',
+        XTREAM_SERVER: 'iptv_xtream_server',
+        XTREAM_USERNAME: 'iptv_xtream_username',
+        XTREAM_PASSWORD: 'iptv_xtream_password',
+        LAST_METHOD: 'iptv_last_method',
+        USE_CORS_PROXY: 'iptv_use_cors_proxy',
         CORS_PROXY_URL: 'iptv_cors_proxy_url'
     },
-    CORS_PROXIES: [
-        'https://corsproxy.io/?',
-        'https://api.allorigins.win/raw?url=',
-        ''
-    ],
-    VOD_KEYWORDS: {
-        MOVIES: ['movie', 'pelicula', 'film', 'cinema', 'vod', 'cine'],
-        SERIES: ['serie', 'series', 'season', 'temporada', 'episode', 'episodio', 'capitulo']
+    XTREAM_ENDPOINTS: {
+        PLAYER_API: '/player_api.php',
+        GET_M3U: '/get.php'
     }
 };
