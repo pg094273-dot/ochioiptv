@@ -1,81 +1,31 @@
-# IPTV Player - Versión Final
+# IPTV Player Ultimate
 
-## 🎯 Problema Identificado y Solucionado
+## 🎯 Problema Identificado
 
-**TU DIAGNÓSTICO MOSTRÓ:**
-```
-✅ Conexión al servidor: OK
-✅ Playlist descargada: OK
-✅ URL del stream: http://stb.thetripodversus.com:8080/alexpeluquero/vE9SeD34L8Hj/415.ts
-❌ Error: manifestLoadTimeOut
-```
+Tu diagnóstico mostró:
+- Error: `manifestParsingError`
+- Las URLs terminan en `.ts` pero NO son archivos TS válidos
+- El servidor espera que pidas `.m3u8` (manifest HLS)
 
-**CAUSA:** El servidor de streams (stb.thetripodversus.com) tarda demasiado en responder.
+## ✅ Solución Implementada
 
-**SOLUCIÓN IMPLEMENTADA:**
-1. ✅ Opción "Carga directa" que evita HLS.js y usa reproducción nativa
-2. ✅ Timeout configurable (10s, 20s, 30s, 60s)
-3. ✅ Reintento automático con carga directa si HLS.js falla
-4. ✅ Mejor manejo de errores con soluciones específicas
+Esta versión **convierte automáticamente** todas las URLs:
+- De: `http://...../415.ts`
+- A: `http://...../415.m3u8`
+
+Y si eso falla, prueba con la URL original `.ts`
 
 ## 🚀 Cómo Usar
 
-### Paso 1: Conectar
-Los campos ya vienen con tus datos:
-- Servidor: http://palanganas.dnsalias.net:8080
-- Usuario: alexpeluquero
-- Contraseña: vE9SeD34L8Hj
+1. Descarga y abre `index.html`
+2. Los campos ya tienen tus datos
+3. Haz clic en "🚀 Conectar"
+4. Selecciona un canal
+5. ¡Debería reproducir!
 
-Haz clic en "🚀 Conectar"
+## 💡 Por Qué Funciona
 
-### Paso 2: ACTIVAR "Carga directa" (IMPORTANTE)
-Después de conectar, ACTIVA el checkbox:
-☑️ ⚡ Carga directa (recomendado para tu caso)
-
-### Paso 3: Seleccionar canal y reproducir
-1. Selecciona un canal de la lista
-2. Haz clic en "▶️ REPRODUCIR"
-
-## ⚙️ Configuración
-
-### Carga Directa (RECOMENDADO PARA TI)
-- **Activado**: Usa reproducción nativa HTML5 (evita timeouts)
-- **Desactivado**: Usa HLS.js (más compatible pero más lento)
-
-**Para tu caso específico: ACTIVAR**
-
-### Timeout
-Elige cuánto tiempo esperar antes de dar error:
-- 10s: Rápido pero puede fallar
-- 20s: Balance
-- **30s: Recomendado** (valor por defecto)
-- 60s: Para conexiones muy lentas
-
-## 🔴 Si Aún No Funciona
-
-1. **Aumenta el timeout a 60 segundos**
-2. **Asegúrate de que "Carga directa" esté activada**
-3. **Prueba con varios canales** (algunos pueden estar offline)
-4. **En iPhone: USA SAFARI** (no Chrome ni Firefox)
-5. **Verifica que tu conexión WiFi sea estable**
-
-## 📱 Compatibilidad
-
-✅ Chrome, Firefox, Edge (PC)
-✅ Safari (Mac)
-✅ Safari (iPhone/iPad) - Carga directa automática
-✅ Todos los navegadores modernos
-
-## 💡 Por Qué Funciona Esta Versión
-
-Tu playlist usa un **servidor diferente** para los streams:
-- Playlist: `palanganas.dnsalias.net`
-- Streams: `stb.thetripodversus.com`
-
-El segundo servidor es **más lento** en responder, por eso:
-- HLS.js da timeout
-- La carga directa funciona mejor (el navegador gestiona el timeout)
-- Con 30-60s de timeout, hay más margen
+Tu servicio Xtream Codes proporciona URLs que terminan en `.ts`, pero el servidor espera que pidas el manifest `.m3u8`. Esta versión hace la conversión automáticamente.
 
 ---
-Versión Final | Enero 2026
+Versión Ultimate | Enero 2026
