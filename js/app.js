@@ -8,8 +8,9 @@ class IPTVApp {
     init() {
         logger.init();
         logger.success('═══════════════════════════════');
-        logger.success('IPTV PLAYER PRO v2.0 - iPhone');
+        logger.success('IPTV PLAYER PRO v2.1 - Directo');
         logger.success('═══════════════════════════════');
+        logger.warning('💡 Usa "Pegar Contenido M3U" para evitar CORS');
         player = new IPTVPlayer(document.getElementById('videoPlayer'));
         this.setupUI();
         this.loadPlaylistList();
@@ -35,8 +36,9 @@ class IPTVApp {
                 document.getElementById('method' + tab.dataset.method.charAt(0).toUpperCase() + tab.dataset.method.slice(1)).classList.add('active');
             };
         });
-        document.getElementById('addXtreamBtn').onclick = () => this.addXtreamPlaylist();
+        document.getElementById('addXtreamBtn').onclick = () => this.generateXtreamURL();
         document.getElementById('addM3uBtn').onclick = () => this.addM3UPlaylist();
+        document.getElementById('addPasteBtn').onclick = () => this.addPastePlaylist();
         document.getElementById('playlistSelect').onchange = (e) => {
             if (e.target.value) {
                 this.loadPlaylist(e.target.value);
@@ -53,30 +55,44 @@ class IPTVApp {
         document.getElementById('resumeBtn').onclick = () => this.resumeSelected();
         document.getElementById('clearLogBtn').onclick = () => logger.clear();
     }
-    addXtreamPlaylist() {
+    generateXtreamURL() {
         const name = document.getElementById('playlistName').value.trim();
         const server = document.getElementById('xtreamServer').value.trim().replace(/\/+$/, '');
         const username = document.getElementById('xtreamUser').value.trim();
         const password = document.getElementById('xtreamPass').value.trim();
-        if (!name || !server || !username || !password) {
-            alert('Completa todos los campos');
+
+        if (!server || !username || !password) {
+            alert('Completa servidor, usuario y contraseña');
             return;
         }
-        const playlist = {
-            name: name,
-            type: 'xtream',
-            server: server,
-            username: username,
-            password: password
-        };
-        const id = storage.addPlaylist(playlist);
-        this.loadPlaylistList();
-        this.loadPlaylist(id);
-        document.getElementById('playlistName').value = '';
-        document.getElementById('xtreamServer').value = '';
-        document.getElementById('xtreamUser').value = '';
-        document.getElementById('xtreamPass').value = '';
-        document.getElementById('playlistModal').classList.remove('active');
+
+        const url = `${server}/get.php?username=${username}&password=${password}&type=m3u_plus&output=ts`;
+
+        const message = `📋 INSTRUCCIONES XTREAM CODES:\n\n` +
+            `1️⃣ Copia esta URL:\n${url}\n\n` +
+            `2️⃣ Abre una nueva pestaña y pégala en la barra de direcciones\n\n` +
+            `3️⃣ Copia TODO el contenido que aparece (empezará con #EXTM3U)\n\n` +
+            `4️⃣ Vuelve aquí y haz clic en "Pegar Contenido M3U"\n\n` +
+            `5️⃣ Pega el contenido en el área de texto y dale a "Agregar"\n\n` +
+            `⚠️ NOTA: Esto es necesario porque Safari/iPhone bloquea CORS`;
+
+        alert(message);
+
+        logger.info('═════════════════════════════');
+        logger.warning('COPIA ESTA URL:');
+        logger.info(url);
+        logger.info('═════════════════════════════');
+        logger.warning('1. Abre la URL en una nueva pestaña');
+        logger.warning('2. Copia TODO el contenido');
+        logger.warning('3. Usa "Pegar Contenido M3U"');
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(() => {
+                logger.success('✅ URL copiada al portapapeles');
+            }).catch(() => {
+                logger.warning('Copia la URL manualmente del log');
+            });
+        }
     }
     addM3UPlaylist() {
         const name = document.getElementById('m3uName').value.trim();
@@ -85,16 +101,45 @@ class IPTVApp {
             alert('Completa todos los campos');
             return;
         }
+        alert('⚠️ Las URLs M3U no funcionan por CORS.\n\n' +
+              'En su lugar:\n' +
+              '1. Abre la URL en tu navegador\n' +
+              '2. Copia el contenido\n' +
+              '3. Usa "Pegar Contenido M3U"');
+        logger.error('URLs M3U bloqueadas por CORS');
+        logger.info('Usa "Pegar Contenido M3U" en su lugar');
+    }
+    addPastePlaylist() {
+        const name = document.getElementById('pasteName').value.trim();
+        const content = document.getElementById('pasteContent').value.trim();
+
+        if (!name) {
+            alert('Escribe un nombre para la lista');
+            return;
+        }
+
+        if (!content) {
+            alert('Pega el contenido M3U');
+            return;
+        }
+
+        if (!content.includes('#EXTM3U') && !content.includes('#EXTINF')) {
+            alert('⚠️ El contenido no parece ser un archivo M3U válido.\n\nAsegúrate de copiar TODO desde #EXTM3U hasta el final.');
+            return;
+        }
+
         const playlist = {
             name: name,
-            type: 'm3u',
-            url: url
+            type: 'paste',
+            content: content
         };
+
         const id = storage.addPlaylist(playlist);
         this.loadPlaylistList();
         this.loadPlaylist(id);
-        document.getElementById('m3uName').value = '';
-        document.getElementById('m3uUrl').value = '';
+
+        document.getElementById('pasteName').value = '';
+        document.getElementById('pasteContent').value = '';
         document.getElementById('playlistModal').classList.remove('active');
     }
     loadPlaylistList() {
@@ -116,13 +161,22 @@ class IPTVApp {
             select.appendChild(option);
             const item = document.createElement('div');
             item.className = 'playlist-item';
+            let typeIcon = '📋';
+            let typeText = 'Contenido pegado';
+            if (playlist.type === 'xtream') {
+                typeIcon = '🌐';
+                typeText = 'Xtream (pegado)';
+            } else if (playlist.type === 'm3u') {
+                typeIcon = '📄';
+                typeText = 'M3U (pegado)';
+            }
             item.innerHTML = `
                 <div class="playlist-item-info">
                     <h4>${playlist.name}</h4>
-                    <p>${playlist.type === 'xtream' ? '🌐 Xtream Codes' : '📄 M3U'}</p>
+                    <p>${typeIcon} ${typeText}</p>
                 </div>
                 <div class="playlist-item-actions">
-                    <button class="btn-mini" onclick="app.loadPlaylist('${playlist.id}')">📂 Cargar</button>
+                    <button class="btn-mini" onclick="app.loadPlaylist('${playlist.id}')">📂</button>
                     <button class="btn-mini danger" onclick="app.removePlaylist('${playlist.id}')">🗑️</button>
                 </div>
             `;
@@ -147,7 +201,7 @@ class IPTVApp {
             this.switchTab('live');
             document.getElementById('playlistSelect').value = id;
         } catch (error) {
-            alert('Error al cargar lista:\n' + error.message + '\n\nEn iPhone puede ser un problema de CORS. Verifica el log.');
+            alert('Error al cargar lista:\n' + error.message);
         }
     }
     switchTab(tabType) {
@@ -183,7 +237,6 @@ class IPTVApp {
         }
     }
     async selectContent(content, element) {
-        logger.info('Seleccionado: ' + content.name);
         this.selectedContent = content;
         document.querySelectorAll('.content-item').forEach(i => i.classList.remove('active'));
         if (element) element.classList.add('active');
@@ -227,7 +280,7 @@ class IPTVApp {
         try {
             await player.loadStream(this.selectedContent);
         } catch (error) {
-            alert('Error al reproducir:\n' + error.message + '\n\nPrueba con otro canal.');
+            alert('Error al reproducir:\n' + error.message);
         }
     }
     async resumeSelected() {

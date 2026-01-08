@@ -17,6 +17,9 @@ class PlaylistManager {
                 content = await this.loadXtream(playlist);
             } else if (playlist.type === 'm3u') {
                 content = await this.loadM3U(playlist);
+            } else if (playlist.type === 'paste') {
+                content = playlist.content;
+                logger.success('Usando contenido pegado directamente');
             }
             this.parseContent(content);
             logger.success('Lista cargada correctamente');
@@ -28,68 +31,25 @@ class PlaylistManager {
     }
     async loadXtream(playlist) {
         const url = `${playlist.server}/get.php?username=${playlist.username}&password=${playlist.password}&type=m3u_plus&output=ts`;
-        logger.info('Conectando a Xtream...');
-
-        try {
-            // Intento 1: Fetch directo
-            logger.info('Intento 1: Fetch directo');
-            const response = await fetch(url, {
-                method: 'GET',
-                mode: 'cors',
-                cache: 'no-cache'
-            });
-
-            if (response.ok) {
-                logger.success('Conexión directa exitosa');
-                return await response.text();
-            }
-        } catch (error) {
-            logger.warning('Fetch directo falló: ' + error.message);
-        }
-
-        try {
-            // Intento 2: Con proxy CORS
-            logger.info('Intento 2: Usando proxy CORS');
-            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-            const response = await fetch(proxyUrl);
-
-            if (response.ok) {
-                logger.success('Conexión con proxy exitosa');
-                return await response.text();
-            }
-        } catch (error) {
-            logger.warning('Proxy CORS falló: ' + error.message);
-        }
-
-        try {
-            // Intento 3: Proxy alternativo
-            logger.info('Intento 3: Proxy alternativo');
-            const proxyUrl2 = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-            const response = await fetch(proxyUrl2);
-
-            if (response.ok) {
-                logger.success('Conexión con proxy alternativo exitosa');
-                return await response.text();
-            }
-        } catch (error) {
-            logger.error('Todos los intentos fallaron');
-        }
-
-        throw new Error('No se pudo conectar al servidor. Problema de CORS en iPhone.');
+        logger.info('URL Xtream generada');
+        logger.warning('⚠️ Abre esta URL en tu navegador y copia el contenido:');
+        logger.info(url);
+        logger.error('CORS bloqueado - No se puede cargar automáticamente');
+        logger.info('📋 Copia el contenido M3U y usa "Pegar Contenido M3U"');
+        throw new Error('CORS bloqueado. Usa la opción "Pegar Contenido M3U" en su lugar.\n\n1. Abre esta URL en una nueva pestaña:\n' + url + '\n\n2. Copia todo el contenido\n3. Vuelve aquí y pégalo usando "Pegar Contenido M3U"');
     }
     async loadM3U(playlist) {
-        logger.info('Descargando M3U...');
+        logger.info('Intentando cargar M3U desde URL...');
         try {
-            const response = await fetch(playlist.url);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.text();
+            const response = await fetch(playlist.url, {
+                mode: 'no-cors'
+            });
+            logger.error('CORS bloqueado - fetch no funciona en navegadores móviles');
+            throw new Error('CORS bloqueado');
         } catch (error) {
-            // Intentar con proxy
-            logger.warning('Reintentando con proxy...');
-            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(playlist.url);
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.text();
+            logger.error('No se puede cargar M3U automáticamente');
+            logger.info('📋 Usa la opción "Pegar Contenido M3U" en su lugar');
+            throw new Error('CORS bloqueado. Usa la opción "Pegar Contenido M3U".');
         }
     }
     parseContent(content) {

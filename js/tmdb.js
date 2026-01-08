@@ -9,19 +9,16 @@ class TMDBManager {
         if (this.cache[title]) return this.cache[title];
         try {
             const cleanTitle = this.cleanTitle(title);
-            logger.info(`Buscando en TMDB: ${cleanTitle}`);
             const url = `${this.baseUrl}/search/movie?api_key=${this.apiKey}&language=es&query=${encodeURIComponent(cleanTitle)}`;
             const response = await fetch(url);
             const data = await response.json();
             if (data.results && data.results.length > 0) {
                 const movie = data.results[0];
-                logger.success(`Encontrado: ${movie.title}`);
                 this.cache[title] = movie;
                 return movie;
             }
             return null;
         } catch (error) {
-            logger.error('Error TMDB: ' + error.message);
             return null;
         }
     }
@@ -34,13 +31,11 @@ class TMDBManager {
             const data = await response.json();
             if (data.results && data.results.length > 0) {
                 const show = data.results[0];
-                logger.success(`Serie encontrada: ${show.name}`);
                 this.cache[title] = show;
                 return show;
             }
             return null;
         } catch (error) {
-            logger.error('Error TMDB: ' + error.message);
             return null;
         }
     }

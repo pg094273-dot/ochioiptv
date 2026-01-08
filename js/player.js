@@ -15,7 +15,6 @@ class IPTVPlayer {
             }
         });
         this.video.addEventListener('ended', () => {
-            logger.info('Video finalizado');
             if (this.currentContent) {
                 storage.clearPosition(this.currentContent.id);
             }
@@ -39,37 +38,35 @@ class IPTVPlayer {
         logger.info('═════════════════════════════');
         this.currentContent = content;
         this.cleanup();
+
         let finalUrl = content.url;
 
-        // Conversión .ts a .m3u8
         if (finalUrl.endsWith('.ts')) {
             finalUrl = finalUrl.replace(/\.ts$/, '.m3u8');
             logger.warning('Convirtiendo .ts → .m3u8');
         }
 
-        logger.info('URL: ' + finalUrl.substring(0, 80) + '...');
+        logger.info('URL: ' + finalUrl);
 
         try {
             await this.tryLoad(finalUrl);
-            logger.success('Stream cargado');
+            logger.success('Stream cargado correctamente');
 
-            // En iPhone, necesitamos esperar más tiempo
             setTimeout(() => {
                 this.video.play().catch(err => {
-                    logger.warning('Auto-play bloqueado. Haz clic en play manualmente.');
+                    logger.warning('Toca el botón play para iniciar');
                 });
-            }, 1000);
+            }, 500);
         } catch (error) {
-            logger.error('Error al cargar: ' + error.message);
+            logger.error('Error al cargar stream: ' + error.message);
 
-            // Intentar con URL original
             if (finalUrl !== content.url) {
                 logger.warning('Reintentando con URL original...');
                 try {
                     await this.tryLoad(content.url);
                     logger.success('Stream cargado con URL original');
                 } catch (err2) {
-                    logger.error('También falló: ' + err2.message);
+                    logger.error('También falló con URL original');
                     throw err2;
                 }
             } else {
@@ -82,7 +79,6 @@ class IPTVPlayer {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-            // SIEMPRE usar HLS nativo en iPhone/Safari
             if (isIOS || isSafari) {
                 logger.info('Modo: HLS nativo (iPhone/Safari)');
 
@@ -90,13 +86,13 @@ class IPTVPlayer {
 
                 const onLoad = () => {
                     cleanup();
-                    logger.success('Metadata cargada');
+                    logger.success('Video listo para reproducir');
                     resolve();
                 };
 
                 const onError = (e) => {
                     cleanup();
-                    logger.error('Error en HLS nativo');
+                    logger.error('Error al cargar video');
                     reject(new Error('Error HLS nativo'));
                 };
 
@@ -110,14 +106,12 @@ class IPTVPlayer {
 
                 this.video.load();
 
-                // Timeout más largo para iPhone (30 segundos)
                 setTimeout(() => {
                     cleanup();
                     reject(new Error('Timeout - El servidor tarda demasiado'));
                 }, 30000);
 
             } else {
-                // Desktop: usar HLS.js si está disponible
                 if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                     logger.info('Modo: HLS.js');
 
@@ -127,11 +121,7 @@ class IPTVPlayer {
                         maxBufferLength: 60,
                         maxMaxBufferLength: 120,
                         maxBufferSize: 60 * 1000 * 1000,
-                        maxBufferHole: 0.5,
-                        manifestLoadingTimeOut: 20000,
-                        manifestLoadingMaxRetry: 3,
-                        levelLoadingTimeOut: 20000,
-                        fragLoadingTimeOut: 20000
+                        maxBufferHole: 0.5
                     });
 
                     let resolved = false;
@@ -147,22 +137,11 @@ class IPTVPlayer {
                     this.hls.on(Hls.Events.ERROR, (event, data) => {
                         if (data.fatal) {
                             logger.error(`Error HLS: ${data.details}`);
-
-                            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                                logger.warning('Error de red, reintentando...');
-                                setTimeout(() => {
-                                    if (this.hls) this.hls.startLoad();
-                                }, 1000);
-                            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                                logger.warning('Error de medios, recuperando...');
-                                if (this.hls) this.hls.recoverMediaError();
-                            } else {
-                                if (!resolved) {
-                                    resolved = true;
-                                    this.hls.destroy();
-                                    this.hls = null;
-                                    reject(new Error(data.details));
-                                }
+                            if (!resolved) {
+                                resolved = true;
+                                this.hls.destroy();
+                                this.hls = null;
+                                reject(new Error(data.details));
                             }
                         }
                     });
@@ -182,7 +161,6 @@ class IPTVPlayer {
                     }, 20000);
 
                 } else {
-                    // Fallback: video directo
                     logger.info('Modo: Video directo');
                     this.video.src = url;
 

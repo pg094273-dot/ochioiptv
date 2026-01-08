@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>IPTV Player PRO - iPhone</title>
+    <title>IPTV Player PRO - Sin Proxy</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -25,24 +25,40 @@
                 </div>
                 <div class="modal-body">
                     <div class="playlist-form">
-                        <h3>➕ Agregar Nueva Lista</h3>
+                        <h3>➕ Agregar Lista IPTV</h3>
                         <div class="tabs-small">
-                            <button class="tab-small active" data-method="xtream">Xtream Codes</button>
+                            <button class="tab-small" data-method="xtream">Xtream</button>
                             <button class="tab-small" data-method="m3u">URL M3U</button>
+                            <button class="tab-small active" data-method="paste">Pegar M3U</button>
                         </div>
 
-                        <div id="methodXtream" class="method-form active">
-                            <input type="text" id="playlistName" placeholder="Nombre de la lista" class="input" autocomplete="off">
+                        <div id="methodXtream" class="method-form">
+                            <p style="font-size: 11px; color: #fbbf24; margin-bottom: 10px;">
+                                ⚠️ Esto generará una URL. Cópiala, ábrela en tu navegador, copia el contenido y usa "Pegar M3U"
+                            </p>
+                            <input type="text" id="playlistName" placeholder="Nombre (ej: Mi IPTV)" class="input" autocomplete="off">
                             <input type="text" id="xtreamServer" placeholder="http://servidor:puerto" class="input" autocomplete="off">
                             <input type="text" id="xtreamUser" placeholder="Usuario" class="input" autocomplete="off">
                             <input type="password" id="xtreamPass" placeholder="Contraseña" class="input" autocomplete="off">
-                            <button id="addXtreamBtn" class="btn-primary">➕ Agregar Xtream</button>
+                            <button id="addXtreamBtn" class="btn-primary">📋 Generar URL</button>
                         </div>
 
                         <div id="methodM3u" class="method-form">
-                            <input type="text" id="m3uName" placeholder="Nombre de la lista" class="input" autocomplete="off">
-                            <input type="url" id="m3uUrl" placeholder="https://ejemplo.com/playlist.m3u" class="input" autocomplete="off">
-                            <button id="addM3uBtn" class="btn-primary">➕ Agregar M3U</button>
+                            <p style="font-size: 11px; color: #fbbf24; margin-bottom: 10px;">
+                                ⚠️ URLs M3U bloqueadas por CORS. Abre la URL, copia el contenido y usa "Pegar M3U"
+                            </p>
+                            <input type="text" id="m3uName" placeholder="Nombre" class="input" autocomplete="off">
+                            <input type="url" id="m3uUrl" placeholder="https://ejemplo.com/lista.m3u" class="input" autocomplete="off">
+                            <button id="addM3uBtn" class="btn-primary">ℹ️ Instrucciones</button>
+                        </div>
+
+                        <div id="methodPaste" class="method-form active">
+                            <p style="font-size: 11px; color: #4ade80; margin-bottom: 10px;">
+                                ✅ MÉTODO RECOMENDADO - Pega aquí el contenido M3U completo
+                            </p>
+                            <input type="text" id="pasteName" placeholder="Nombre de la lista" class="input" autocomplete="off">
+                            <textarea id="pasteContent" placeholder="Pega aquí el contenido M3U completo (desde #EXTM3U hasta el final)..." class="input"></textarea>
+                            <button id="addPasteBtn" class="btn-primary">➕ Agregar Lista</button>
                         </div>
                     </div>
 
@@ -76,7 +92,7 @@
             <div id="contentList" class="content-list">
                 <div style="text-align: center; color: #666; padding: 30px 15px;">
                     <div style="font-size: 40px; margin-bottom: 10px;">📋</div>
-                    <p style="font-size: 12px;">Haz clic en 📋 para agregar una lista IPTV</p>
+                    <p style="font-size: 12px;">Haz clic en 📋 y usa "Pegar M3U"</p>
                 </div>
             </div>
         </aside>
@@ -88,7 +104,7 @@
                     <div class="overlay-content">
                         <div class="overlay-icon">🎬</div>
                         <h2>IPTV Player PRO</h2>
-                        <p>Versión optimizada para iPhone</p>
+                        <p>Sin proxies • Pega contenido M3U directamente</p>
                     </div>
                 </div>
             </div>
@@ -108,7 +124,7 @@
 
             <div class="debug-panel">
                 <div class="debug-header">
-                    <span>🔧 Log (importante en iPhone)</span>
+                    <span>🔧 Log</span>
                     <button id="clearLogBtn" class="btn-mini">🗑️</button>
                 </div>
                 <div id="debugLog" class="debug-log"></div>
@@ -116,6 +132,7 @@
         </main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/logger.js"></script>
     <script src="js/storage.js"></script>
