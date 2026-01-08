@@ -29,15 +29,68 @@ class PlaylistManager {
     async loadXtream(playlist) {
         const url = `${playlist.server}/get.php?username=${playlist.username}&password=${playlist.password}&type=m3u_plus&output=ts`;
         logger.info('Conectando a Xtream...');
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return await response.text();
+
+        try {
+            // Intento 1: Fetch directo
+            logger.info('Intento 1: Fetch directo');
+            const response = await fetch(url, {
+                method: 'GET',
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+
+            if (response.ok) {
+                logger.success('Conexión directa exitosa');
+                return await response.text();
+            }
+        } catch (error) {
+            logger.warning('Fetch directo falló: ' + error.message);
+        }
+
+        try {
+            // Intento 2: Con proxy CORS
+            logger.info('Intento 2: Usando proxy CORS');
+            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+            const response = await fetch(proxyUrl);
+
+            if (response.ok) {
+                logger.success('Conexión con proxy exitosa');
+                return await response.text();
+            }
+        } catch (error) {
+            logger.warning('Proxy CORS falló: ' + error.message);
+        }
+
+        try {
+            // Intento 3: Proxy alternativo
+            logger.info('Intento 3: Proxy alternativo');
+            const proxyUrl2 = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+            const response = await fetch(proxyUrl2);
+
+            if (response.ok) {
+                logger.success('Conexión con proxy alternativo exitosa');
+                return await response.text();
+            }
+        } catch (error) {
+            logger.error('Todos los intentos fallaron');
+        }
+
+        throw new Error('No se pudo conectar al servidor. Problema de CORS en iPhone.');
     }
     async loadM3U(playlist) {
         logger.info('Descargando M3U...');
-        const response = await fetch(playlist.url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return await response.text();
+        try {
+            const response = await fetch(playlist.url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.text();
+        } catch (error) {
+            // Intentar con proxy
+            logger.warning('Reintentando con proxy...');
+            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(playlist.url);
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.text();
+        }
     }
     parseContent(content) {
         logger.info('Parseando contenido...');

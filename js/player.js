@@ -40,21 +40,29 @@ class IPTVPlayer {
         this.currentContent = content;
         this.cleanup();
         let finalUrl = content.url;
+
+        // Conversión .ts a .m3u8
         if (finalUrl.endsWith('.ts')) {
             finalUrl = finalUrl.replace(/\.ts$/, '.m3u8');
             logger.warning('Convirtiendo .ts → .m3u8');
         }
+
         logger.info('URL: ' + finalUrl.substring(0, 80) + '...');
+
         try {
             await this.tryLoad(finalUrl);
             logger.success('Stream cargado');
+
+            // En iPhone, necesitamos esperar más tiempo
             setTimeout(() => {
                 this.video.play().catch(err => {
-                    logger.warning('Auto-play bloqueado');
+                    logger.warning('Auto-play bloqueado. Haz clic en play manualmente.');
                 });
-            }, 500);
+            }, 1000);
         } catch (error) {
             logger.error('Error al cargar: ' + error.message);
+
+            // Intentar con URL original
             if (finalUrl !== content.url) {
                 logger.warning('Reintentando con URL original...');
                 try {
@@ -73,105 +81,136 @@ class IPTVPlayer {
         return new Promise((resolve, reject) => {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-            if ((isIOS || isSafari) && this.video.canPlayType('application/vnd.apple.mpegurl')) {
-                logger.info('Modo: HLS nativo');
+
+            // SIEMPRE usar HLS nativo en iPhone/Safari
+            if (isIOS || isSafari) {
+                logger.info('Modo: HLS nativo (iPhone/Safari)');
+
                 this.video.src = url;
+
                 const onLoad = () => {
                     cleanup();
+                    logger.success('Metadata cargada');
                     resolve();
                 };
-                const onError = () => {
+
+                const onError = (e) => {
                     cleanup();
+                    logger.error('Error en HLS nativo');
                     reject(new Error('Error HLS nativo'));
                 };
+
                 const cleanup = () => {
                     this.video.removeEventListener('loadedmetadata', onLoad);
                     this.video.removeEventListener('error', onError);
                 };
+
                 this.video.addEventListener('loadedmetadata', onLoad, { once: true });
                 this.video.addEventListener('error', onError, { once: true });
+
                 this.video.load();
+
+                // Timeout más largo para iPhone (30 segundos)
                 setTimeout(() => {
                     cleanup();
-                    reject(new Error('Timeout'));
-                }, 20000);
-            } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                logger.info('Modo: HLS.js');
-                this.hls = new Hls({
-                    debug: false,
-                    enableWorker: true,
-                    maxBufferLength: 60,
-                    maxMaxBufferLength: 120,
-                    maxBufferSize: 60 * 1000 * 1000,
-                    maxBufferHole: 0.5,
-                    manifestLoadingTimeOut: 20000,
-                    manifestLoadingMaxRetry: 3,
-                    levelLoadingTimeOut: 20000,
-                    fragLoadingTimeOut: 20000
-                });
-                let resolved = false;
-                this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    if (!resolved) {
-                        logger.success('Manifest HLS cargado');
-                        resolved = true;
-                        resolve();
-                    }
-                });
-                this.hls.on(Hls.Events.ERROR, (event, data) => {
-                    if (data.fatal) {
-                        logger.error(`Error HLS: ${data.details}`);
-                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                            logger.warning('Error de red, reintentando...');
-                            setTimeout(() => {
-                                if (this.hls) this.hls.startLoad();
-                            }, 1000);
-                        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                            logger.warning('Error de medios, recuperando...');
-                            if (this.hls) this.hls.recoverMediaError();
-                        } else {
-                            if (!resolved) {
-                                resolved = true;
-                                this.hls.destroy();
-                                this.hls = null;
-                                reject(new Error(data.details));
+                    reject(new Error('Timeout - El servidor tarda demasiado'));
+                }, 30000);
+
+            } else {
+                // Desktop: usar HLS.js si está disponible
+                if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    logger.info('Modo: HLS.js');
+
+                    this.hls = new Hls({
+                        debug: false,
+                        enableWorker: true,
+                        maxBufferLength: 60,
+                        maxMaxBufferLength: 120,
+                        maxBufferSize: 60 * 1000 * 1000,
+                        maxBufferHole: 0.5,
+                        manifestLoadingTimeOut: 20000,
+                        manifestLoadingMaxRetry: 3,
+                        levelLoadingTimeOut: 20000,
+                        fragLoadingTimeOut: 20000
+                    });
+
+                    let resolved = false;
+
+                    this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        if (!resolved) {
+                            logger.success('Manifest HLS cargado');
+                            resolved = true;
+                            resolve();
+                        }
+                    });
+
+                    this.hls.on(Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                            logger.error(`Error HLS: ${data.details}`);
+
+                            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                                logger.warning('Error de red, reintentando...');
+                                setTimeout(() => {
+                                    if (this.hls) this.hls.startLoad();
+                                }, 1000);
+                            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                                logger.warning('Error de medios, recuperando...');
+                                if (this.hls) this.hls.recoverMediaError();
+                            } else {
+                                if (!resolved) {
+                                    resolved = true;
+                                    this.hls.destroy();
+                                    this.hls = null;
+                                    reject(new Error(data.details));
+                                }
                             }
                         }
-                    }
-                });
-                this.hls.loadSource(url);
-                this.hls.attachMedia(this.video);
-                setTimeout(() => {
-                    if (!resolved) {
-                        resolved = true;
-                        if (this.hls) {
-                            this.hls.destroy();
-                            this.hls = null;
+                    });
+
+                    this.hls.loadSource(url);
+                    this.hls.attachMedia(this.video);
+
+                    setTimeout(() => {
+                        if (!resolved) {
+                            resolved = true;
+                            if (this.hls) {
+                                this.hls.destroy();
+                                this.hls = null;
+                            }
+                            reject(new Error('Timeout'));
                         }
+                    }, 20000);
+
+                } else {
+                    // Fallback: video directo
+                    logger.info('Modo: Video directo');
+                    this.video.src = url;
+
+                    const onLoad = () => {
+                        cleanup();
+                        resolve();
+                    };
+
+                    const onError = () => {
+                        cleanup();
+                        reject(new Error('Error de carga'));
+                    };
+
+                    const cleanup = () => {
+                        this.video.removeEventListener('loadedmetadata', onLoad);
+                        this.video.removeEventListener('error', onError);
+                    };
+
+                    this.video.addEventListener('loadedmetadata', onLoad, { once: true });
+                    this.video.addEventListener('error', onError, { once: true });
+
+                    this.video.load();
+
+                    setTimeout(() => {
+                        cleanup();
                         reject(new Error('Timeout'));
-                    }
-                }, 20000);
-            } else {
-                logger.info('Modo: Video directo');
-                this.video.src = url;
-                const onLoad = () => {
-                    cleanup();
-                    resolve();
-                };
-                const onError = () => {
-                    cleanup();
-                    reject(new Error('Error de carga'));
-                };
-                const cleanup = () => {
-                    this.video.removeEventListener('loadedmetadata', onLoad);
-                    this.video.removeEventListener('error', onError);
-                };
-                this.video.addEventListener('loadedmetadata', onLoad, { once: true });
-                this.video.addEventListener('error', onError, { once: true });
-                this.video.load();
-                setTimeout(() => {
-                    cleanup();
-                    reject(new Error('Timeout'));
-                }, 15000);
+                    }, 15000);
+                }
             }
         });
     }

@@ -19,7 +19,6 @@ class TMDBManager {
                 this.cache[title] = movie;
                 return movie;
             }
-            logger.warning('No se encontró en TMDB');
             return null;
         } catch (error) {
             logger.error('Error TMDB: ' + error.message);
@@ -30,7 +29,6 @@ class TMDBManager {
         if (this.cache[title]) return this.cache[title];
         try {
             const cleanTitle = this.cleanTitle(title);
-            logger.info(`Buscando serie en TMDB: ${cleanTitle}`);
             const url = `${this.baseUrl}/search/tv?api_key=${this.apiKey}&language=es&query=${encodeURIComponent(cleanTitle)}`;
             const response = await fetch(url);
             const data = await response.json();
@@ -40,7 +38,6 @@ class TMDBManager {
                 this.cache[title] = show;
                 return show;
             }
-            logger.warning('Serie no encontrada en TMDB');
             return null;
         } catch (error) {
             logger.error('Error TMDB: ' + error.message);

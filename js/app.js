@@ -8,7 +8,7 @@ class IPTVApp {
     init() {
         logger.init();
         logger.success('═══════════════════════════════');
-        logger.success('IPTV PLAYER PRO v2.0');
+        logger.success('IPTV PLAYER PRO v2.0 - iPhone');
         logger.success('═══════════════════════════════');
         player = new IPTVPlayer(document.getElementById('videoPlayer'));
         this.setupUI();
@@ -147,7 +147,7 @@ class IPTVApp {
             this.switchTab('live');
             document.getElementById('playlistSelect').value = id;
         } catch (error) {
-            alert('Error al cargar lista:\n' + error.message);
+            alert('Error al cargar lista:\n' + error.message + '\n\nEn iPhone puede ser un problema de CORS. Verifica el log.');
         }
     }
     switchTab(tabType) {

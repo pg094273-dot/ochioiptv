@@ -2,8 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Player PRO</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>IPTV Player PRO - iPhone</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -30,16 +32,16 @@
                         </div>
 
                         <div id="methodXtream" class="method-form active">
-                            <input type="text" id="playlistName" placeholder="Nombre de la lista (ej: Mi IPTV)" class="input">
-                            <input type="text" id="xtreamServer" placeholder="http://servidor:puerto" class="input">
-                            <input type="text" id="xtreamUser" placeholder="Usuario" class="input">
-                            <input type="password" id="xtreamPass" placeholder="Contraseña" class="input">
+                            <input type="text" id="playlistName" placeholder="Nombre de la lista" class="input" autocomplete="off">
+                            <input type="text" id="xtreamServer" placeholder="http://servidor:puerto" class="input" autocomplete="off">
+                            <input type="text" id="xtreamUser" placeholder="Usuario" class="input" autocomplete="off">
+                            <input type="password" id="xtreamPass" placeholder="Contraseña" class="input" autocomplete="off">
                             <button id="addXtreamBtn" class="btn-primary">➕ Agregar Xtream</button>
                         </div>
 
                         <div id="methodM3u" class="method-form">
-                            <input type="text" id="m3uName" placeholder="Nombre de la lista" class="input">
-                            <input type="text" id="m3uUrl" placeholder="https://ejemplo.com/playlist.m3u" class="input">
+                            <input type="text" id="m3uName" placeholder="Nombre de la lista" class="input" autocomplete="off">
+                            <input type="url" id="m3uUrl" placeholder="https://ejemplo.com/playlist.m3u" class="input" autocomplete="off">
                             <button id="addM3uBtn" class="btn-primary">➕ Agregar M3U</button>
                         </div>
                     </div>
@@ -61,7 +63,7 @@
                 </div>
 
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="🔍 Buscar..." class="input-search">
+                    <input type="search" id="searchInput" placeholder="🔍 Buscar..." class="input-search" autocomplete="off">
                 </div>
 
                 <div class="tabs">
@@ -81,12 +83,12 @@
 
         <main class="main">
             <div class="video-container">
-                <video id="videoPlayer" controls playsinline webkit-playsinline></video>
+                <video id="videoPlayer" controls playsinline webkit-playsinline x-webkit-airplay="allow"></video>
                 <div id="videoOverlay" class="video-overlay">
                     <div class="overlay-content">
                         <div class="overlay-icon">🎬</div>
                         <h2>IPTV Player PRO</h2>
-                        <p>Múltiples listas • Búsqueda avanzada • TMDB • Reanudar reproducción</p>
+                        <p>Versión optimizada para iPhone</p>
                     </div>
                 </div>
             </div>
@@ -106,7 +108,7 @@
 
             <div class="debug-panel">
                 <div class="debug-header">
-                    <span>🔧 Log</span>
+                    <span>🔧 Log (importante en iPhone)</span>
                     <button id="clearLogBtn" class="btn-mini">🗑️</button>
                 </div>
                 <div id="debugLog" class="debug-log"></div>
@@ -114,7 +116,6 @@
         </main>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/logger.js"></script>
     <script src="js/storage.js"></script>
