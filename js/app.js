@@ -1,25 +1,24 @@
 class IPTVApp {
     constructor() {
-        this.player = null;
         this.parser = new M3UParser();
         this.currentTab = 'live';
         this.currentContent = [];
-        this.currentMethod = 'xtream';
         this.init();
     }
 
     init() {
         logger.init();
-        logger.success('═══════════════════════════════════════');
-        logger.success('IPTV PLAYER - XTREAM CODES API');
-        logger.success('Versión profesional con API integrada');
-        logger.success('═══════════════════════════════════════');
+        logger.success('═══════════════════════════════');
+        logger.success('IPTV PLAYER - VERSIÓN CORREGIDA');
+        logger.success('Optimizada para iPhone y navegadores');
+        logger.success('═══════════════════════════════');
 
-        this.player = new IPTVPlayer(document.getElementById('videoPlayer'));
+        window.player = new IPTVPlayer(document.getElementById('videoPlayer'));
+
         this.setupMethodTabs();
         this.setupContentTabs();
         this.setupEvents();
-        this.setupCORSControls();
+        this.setupSettings();
         this.restoreState();
 
         document.getElementById('debugConsole').style.display = 'block';
@@ -28,53 +27,31 @@ class IPTVApp {
     setupMethodTabs() {
         document.querySelectorAll('.method-tab').forEach(tab => {
             tab.onclick = () => {
-                const method = tab.dataset.method;
-                this.switchMethod(method);
+                document.querySelectorAll('.method-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                document.querySelectorAll('.input-method').forEach(m => m.classList.remove('active'));
+                document.getElementById('method-' + tab.dataset.method).classList.add('active');
             };
         });
-    }
-
-    switchMethod(method) {
-        this.currentMethod = method;
-        localStorage.setItem(CONFIG.STORAGE_KEYS.LAST_METHOD, method);
-
-        // Actualizar UI tabs
-        document.querySelectorAll('.method-tab').forEach(tab => {
-            tab.classList.remove('active');
-            if (tab.dataset.method === method) {
-                tab.classList.add('active');
-            }
-        });
-
-        // Mostrar formulario correspondiente
-        document.querySelectorAll('.input-method').forEach(form => {
-            form.classList.remove('active');
-        });
-        document.getElementById('method-' + method).classList.add('active');
-
-        logger.info('Método seleccionado: ' + method.toUpperCase());
     }
 
     setupContentTabs() {
         document.querySelectorAll('.tab').forEach(tab => {
-            tab.onclick = () => {
-                this.switchTab(tab.dataset.tab);
-            };
+            tab.onclick = () => this.switchTab(tab.dataset.tab);
         });
     }
 
     setupEvents() {
-        // Xtream Codes
+        // Xtream
         document.getElementById('loadXtreamBtn').onclick = () => this.loadXtream();
-
-        // Detectar Enter en campos Xtream
         ['xtreamServer', 'xtreamUsername', 'xtreamPassword'].forEach(id => {
             document.getElementById(id).onkeypress = (e) => {
                 if (e.key === 'Enter') this.loadXtream();
             };
         });
 
-        // M3U URL
+        // M3U
         document.getElementById('loadM3uBtn').onclick = () => this.loadM3uUrl();
         document.getElementById('m3uUrl').onkeypress = (e) => {
             if (e.key === 'Enter') this.loadM3uUrl();
@@ -85,9 +62,7 @@ class IPTVApp {
             document.getElementById('m3uFile').click();
         };
         document.getElementById('m3uFile').onchange = (e) => {
-            if (e.target.files[0]) {
-                this.loadFile(e.target.files[0]);
-            }
+            if (e.target.files[0]) this.loadFile(e.target.files[0]);
         };
 
         // Búsqueda
@@ -96,32 +71,19 @@ class IPTVApp {
         };
     }
 
-    setupCORSControls() {
-        const checkbox = document.getElementById('useCorsProxy');
-        const select = document.getElementById('corsProxySelect');
+    setupSettings() {
+        const corsCheckbox = document.getElementById('useCorsProxy');
+        const testCheckbox = document.getElementById('testMode');
 
-        checkbox.checked = xtreamAPI.useCorsProxy;
+        corsCheckbox.checked = xtreamAPI.useCorsProxy;
+        testCheckbox.checked = xtreamAPI.testMode;
 
-        if (xtreamAPI.corsProxyUrl) {
-            for (let i = 0; i < select.options.length; i++) {
-                if (select.options[i].value === xtreamAPI.corsProxyUrl) {
-                    select.selectedIndex = i;
-                    break;
-                }
-            }
-        }
-
-        checkbox.onchange = () => {
-            xtreamAPI.setProxy(checkbox.checked, select.value);
-            if (checkbox.checked) {
-                logger.warning('Proxy CORS activado (solo si hay errores)');
-            } else {
-                logger.success('Proxy CORS desactivado (recomendado)');
-            }
+        corsCheckbox.onchange = () => {
+            xtreamAPI.setProxy(corsCheckbox.checked);
         };
 
-        select.onchange = () => {
-            xtreamAPI.setProxy(checkbox.checked, select.value);
+        testCheckbox.onchange = () => {
+            xtreamAPI.setTestMode(testCheckbox.checked);
         };
     }
 
@@ -131,112 +93,66 @@ class IPTVApp {
         const password = document.getElementById('xtreamPassword').value.trim();
 
         if (!server || !username || !password) {
-            alert('Por favor completa todos los campos:\n\n• Servidor\n• Usuario\n• Contraseña');
+            alert('Completa todos los campos');
             return;
         }
 
-        logger.info('═══════════════════════════════════════');
-        logger.info('INICIANDO CONEXIÓN XTREAM CODES');
-        logger.info('═══════════════════════════════════════');
+        xtreamAPI.saveSettings(server, username, password);
 
-        // Guardar credenciales
-        xtreamAPI.saveCredentials(server, username, password);
-
-        this.showLoading('Conectando con Xtream Codes API...');
+        this.showLoading('Conectando...');
 
         try {
-            // Cargar playlist usando API
             const content = await xtreamAPI.loadPlaylist();
-
-            // Parsear contenido
             this.parser.parse(content);
-
-            // Mostrar contenido
             this.switchTab(this.currentTab);
-
-            logger.success('═══════════════════════════════════════');
             logger.success('✅ CONEXIÓN EXITOSA');
-            logger.success('Todos los streams usarán credenciales');
-            logger.success('═══════════════════════════════════════');
-
         } catch (error) {
-            logger.error('Error al conectar: ' + error.message);
-
-            let alertMsg = 'Error al conectar con Xtream Codes:\n\n' + error.message;
-
-            if (error.message.includes('Autenticación')) {
-                alertMsg += '\n\n💡 Verifica usuario y contraseña';
-            } else if (error.message.includes('Servidor')) {
-                alertMsg += '\n\n💡 Verifica la URL del servidor';
-            } else if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
-                alertMsg += '\n\n💡 Activa el proxy CORS si el problema persiste';
-            }
-
-            alert(alertMsg);
+            logger.error('Error: ' + error.message);
+            alert('Error al conectar:\n\n' + error.message + '\n\n💡 Verifica los datos o activa el proxy CORS');
             this.hideLoading();
         }
     }
 
     async loadM3uUrl() {
         const url = document.getElementById('m3uUrl').value.trim();
-
         if (!url) {
-            alert('Por favor ingresa una URL M3U');
+            alert('Ingresa una URL');
             return;
         }
 
-        logger.info('═══════════════════════════════════════');
-        logger.info('CARGANDO PLAYLIST M3U DESDE URL');
-        logger.info('═══════════════════════════════════════');
-
-        this.showLoading('Descargando playlist M3U...');
+        this.showLoading('Descargando...');
 
         try {
             let fetchUrl = url;
-            if (xtreamAPI.useCorsProxy && xtreamAPI.corsProxyUrl) {
-                fetchUrl = xtreamAPI.corsProxyUrl + encodeURIComponent(url);
-                logger.info('Usando proxy CORS');
+            if (xtreamAPI.useCorsProxy) {
+                fetchUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
             }
 
             const response = await fetch(fetchUrl);
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const content = await response.text();
-            logger.success('Playlist descargada');
-
             this.parser.parse(content);
             this.switchTab(this.currentTab);
-
-            logger.success('✅ Playlist M3U cargada correctamente');
-
+            logger.success('Playlist M3U cargada');
         } catch (error) {
             logger.error('Error: ' + error.message);
-            alert('Error al cargar playlist M3U:\n\n' + error.message);
+            alert('Error al cargar:\n\n' + error.message);
             this.hideLoading();
         }
     }
 
     async loadFile(file) {
-        logger.info('═══════════════════════════════════════');
-        logger.info('CARGANDO ARCHIVO LOCAL');
-        logger.info('Archivo: ' + file.name);
-        logger.info('═══════════════════════════════════════');
-
         this.showLoading('Leyendo archivo...');
 
         try {
             const content = await this.readFile(file);
             this.parser.parse(content);
             this.switchTab(this.currentTab);
-
-            logger.success('✅ Archivo cargado correctamente');
-
+            logger.success('Archivo cargado');
         } catch (error) {
             logger.error('Error: ' + error.message);
-            alert('Error al cargar archivo:\n\n' + error.message);
+            alert('Error al cargar archivo');
             this.hideLoading();
         }
     }
@@ -253,15 +169,11 @@ class IPTVApp {
     switchTab(tabType) {
         this.currentTab = tabType;
 
-        // Actualizar UI
         document.querySelectorAll('.tab').forEach(tab => {
             tab.classList.remove('active');
-            if (tab.dataset.tab === tabType) {
-                tab.classList.add('active');
-            }
+            if (tab.dataset.tab === tabType) tab.classList.add('active');
         });
 
-        // Título
         const titles = {
             'live': 'Canales en Vivo',
             'movies': 'Películas',
@@ -269,12 +181,11 @@ class IPTVApp {
         };
         document.getElementById('sidebarTitle').textContent = titles[tabType];
 
-        // Contenido
         const content = this.parser.getByType(tabType);
         this.currentContent = content;
         this.renderContent(content);
 
-        logger.info(`Tab: ${tabType.toUpperCase()} - ${content.length} items`);
+        logger.info(`${tabType.toUpperCase()}: ${content.length} items`);
     }
 
     renderContent(items) {
@@ -282,12 +193,9 @@ class IPTVApp {
 
         if (items.length === 0) {
             list.innerHTML = `
-                <div style="text-align: center; color: #666; padding: 60px 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">📭</div>
-                    <p style="font-size: 16px; margin-bottom: 10px; font-weight: 600;">Sin contenido</p>
-                    <p style="font-size: 13px; color: #555;">
-                        No hay items en esta categoría
-                    </p>
+                <div style="text-align: center; color: #666; padding: 40px 15px;">
+                    <div style="font-size: 40px; margin-bottom: 15px;">📭</div>
+                    <p style="font-size: 14px;">Sin contenido</p>
                 </div>
             `;
             return;
@@ -298,20 +206,11 @@ class IPTVApp {
         items.forEach(item => {
             const div = document.createElement('div');
             div.className = 'content-item';
-
-            let badge = '';
-            if (item.type === 'movie') badge = '<span class="content-badge">MOVIE</span>';
-            else if (item.type === 'series') badge = '<span class="content-badge">SERIES</span>';
-
             div.innerHTML = `
-                <strong>${badge}${item.name}</strong>
+                <strong>${item.name}</strong>
                 <small>${item.group}</small>
             `;
-
-            div.onclick = () => {
-                this.playContent(item, div);
-            };
-
+            div.onclick = () => this.playContent(item, div);
             list.appendChild(div);
         });
 
@@ -319,42 +218,30 @@ class IPTVApp {
     }
 
     playContent(content, element) {
-        logger.info('═══════════════════════════════════════');
+        logger.info('═══════════════════════════════');
         logger.info('SELECCIONADO: ' + content.name);
-        logger.info('═══════════════════════════════════════');
 
-        // Actualizar UI
-        document.querySelectorAll('.content-item').forEach(item => {
-            item.classList.remove('active');
-        });
+        document.querySelectorAll('.content-item').forEach(i => i.classList.remove('active'));
         if (element) element.classList.add('active');
 
-        // Reproducir
-        this.player.loadStream(content.url, content);
+        window.player.loadStream(content.url, content);
 
-        // Now Playing
         document.getElementById('contentTitle').textContent = content.name;
-        document.getElementById('contentMeta').textContent = content.group + ' • ' + content.type.toUpperCase();
+        document.getElementById('contentMeta').textContent = content.group;
         document.getElementById('nowPlaying').style.display = 'block';
     }
 
-    filterContent(searchTerm) {
-        const filtered = this.parser.filterByName(this.currentContent, searchTerm);
+    filterContent(term) {
+        const filtered = this.parser.filterByName(this.currentContent, term);
         this.renderContent(filtered);
-
-        if (searchTerm) {
-            logger.info(`Búsqueda: "${searchTerm}" - ${filtered.length} resultados`);
-        }
+        if (term) logger.info(`Búsqueda: ${filtered.length} resultados`);
     }
 
-    showLoading(message = 'Cargando...') {
+    showLoading(msg = 'Cargando...') {
         document.getElementById('contentList').innerHTML = `
-            <div style="text-align: center; color: #999; padding: 60px 20px;">
-                <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
-                <p style="font-size: 18px; margin-bottom: 10px; font-weight: 600;">${message}</p>
-                <p style="font-size: 13px; color: #666;">
-                    Por favor espera
-                </p>
+            <div style="text-align: center; color: #999; padding: 40px 15px;">
+                <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
+                <p style="font-size: 14px;">${msg}</p>
             </div>
         `;
     }
@@ -364,23 +251,15 @@ class IPTVApp {
     }
 
     restoreState() {
-        // Restaurar método
-        const savedMethod = localStorage.getItem(CONFIG.STORAGE_KEYS.LAST_METHOD);
-        if (savedMethod) {
-            this.switchMethod(savedMethod);
-        }
-
-        // Restaurar credenciales Xtream en campos
         if (xtreamAPI.server) {
             document.getElementById('xtreamServer').value = xtreamAPI.server;
             document.getElementById('xtreamUsername').value = xtreamAPI.username;
             document.getElementById('xtreamPassword').value = xtreamAPI.password;
-            logger.info('Credenciales Xtream restauradas');
+            logger.info('Credenciales restauradas');
         }
     }
 }
 
-// Iniciar app
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new IPTVApp();
 });

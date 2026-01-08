@@ -4,120 +4,101 @@ class XtreamAPI {
         this.username = '';
         this.password = '';
         this.useCorsProxy = false;
-        this.corsProxyUrl = '';
-        this.loadCredentials();
+        this.testMode = false;
+        this.loadSettings();
     }
 
-    loadCredentials() {
+    loadSettings() {
         this.server = localStorage.getItem(CONFIG.STORAGE_KEYS.XTREAM_SERVER) || '';
         this.username = localStorage.getItem(CONFIG.STORAGE_KEYS.XTREAM_USERNAME) || '';
         this.password = localStorage.getItem(CONFIG.STORAGE_KEYS.XTREAM_PASSWORD) || '';
-        this.useCorsProxy = localStorage.getItem(CONFIG.STORAGE_KEYS.USE_CORS_PROXY) === 'true';
-        this.corsProxyUrl = localStorage.getItem(CONFIG.STORAGE_KEYS.CORS_PROXY_URL) || '';
-
-        if (this.server && this.username && this.password) {
-            logger.info('Credenciales Xtream Codes cargadas del almacenamiento');
-        }
+        this.useCorsProxy = localStorage.getItem(CONFIG.STORAGE_KEYS.USE_CORS) === 'true';
+        this.testMode = localStorage.getItem(CONFIG.STORAGE_KEYS.TEST_MODE) === 'true';
     }
 
-    saveCredentials(server, username, password) {
-        this.server = server;
-        this.username = username;
-        this.password = password;
-
-        localStorage.setItem(CONFIG.STORAGE_KEYS.XTREAM_SERVER, server);
-        localStorage.setItem(CONFIG.STORAGE_KEYS.XTREAM_USERNAME, username);
-        localStorage.setItem(CONFIG.STORAGE_KEYS.XTREAM_PASSWORD, password);
-
+    saveSettings(server, username, password) {
+        this.server = server.trim().replace(/\/+$/, '');
+        this.username = username.trim();
+        this.password = password.trim();
+        localStorage.setItem(CONFIG.STORAGE_KEYS.XTREAM_SERVER, this.server);
+        localStorage.setItem(CONFIG.STORAGE_KEYS.XTREAM_USERNAME, this.username);
+        localStorage.setItem(CONFIG.STORAGE_KEYS.XTREAM_PASSWORD, this.password);
         logger.success('Credenciales guardadas');
     }
 
-    setProxy(use, url) {
+    setProxy(use) {
         this.useCorsProxy = use;
-        this.corsProxyUrl = url;
-        localStorage.setItem(CONFIG.STORAGE_KEYS.USE_CORS_PROXY, use);
-        localStorage.setItem(CONFIG.STORAGE_KEYS.CORS_PROXY_URL, url);
+        localStorage.setItem(CONFIG.STORAGE_KEYS.USE_CORS, use);
+        logger.info(`Proxy CORS: ${use ? 'ACTIVADO' : 'DESACTIVADO'}`);
+    }
+
+    setTestMode(enabled) {
+        this.testMode = enabled;
+        localStorage.setItem(CONFIG.STORAGE_KEYS.TEST_MODE, enabled);
+        logger.info(`Modo de prueba: ${enabled ? 'ACTIVADO' : 'DESACTIVADO'}`);
     }
 
     buildPlaylistUrl() {
         if (!this.server || !this.username || !this.password) {
             throw new Error('Faltan credenciales');
         }
-
-        // Limpiar servidor (quitar / al final)
-        let cleanServer = this.server.trim();
-        if (cleanServer.endsWith('/')) {
-            cleanServer = cleanServer.slice(0, -1);
-        }
-
-        const url = `${cleanServer}${CONFIG.XTREAM_ENDPOINTS.GET_M3U}?username=${this.username}&password=${this.password}&type=m3u_plus&output=ts`;
-
-        logger.info('URL construida para Xtream Codes');
-        return url;
+        return `${this.server}/get.php?username=${this.username}&password=${this.password}&type=m3u_plus&output=ts`;
     }
 
-    buildStreamUrl(streamId, type = 'live') {
-        if (!this.server || !this.username || !this.password) {
-            throw new Error('Faltan credenciales');
+    buildStreamUrl(streamUrl, streamId, type = 'live') {
+        // Si ya tiene las credenciales, devolverla tal cual
+        if (streamUrl.includes(`/${this.username}/${this.password}/`)) {
+            return streamUrl;
         }
 
-        let cleanServer = this.server.trim();
-        if (cleanServer.endsWith('/')) {
-            cleanServer = cleanServer.slice(0, -1);
+        // Si es una URL externa completa, devolverla
+        if (streamUrl.startsWith('http') && !streamUrl.includes(this.server)) {
+            return streamUrl;
         }
 
-        let url;
-        switch(type) {
-            case 'movie':
-                url = `${cleanServer}/movie/${this.username}/${this.password}/${streamId}.mp4`;
-                break;
-            case 'series':
-                url = `${cleanServer}/series/${this.username}/${this.password}/${streamId}.mp4`;
-                break;
-            default: // live
-                url = `${cleanServer}/live/${this.username}/${this.password}/${streamId}.ts`;
+        // Construir URL Xtream si tenemos los datos
+        if (this.server && this.username && this.password && streamId) {
+            let endpoint;
+            if (type === 'movie') endpoint = '/movie/';
+            else if (type === 'series') endpoint = '/series/';
+            else endpoint = '/live/';
+
+            return `${this.server}${endpoint}${this.username}/${this.password}/${streamId}.ts`;
         }
 
-        return url;
+        return streamUrl;
     }
 
     async loadPlaylist() {
-        logger.info('═══════════════════════════════════════');
-        logger.info('CONECTANDO CON XTREAM CODES API');
-        logger.info('═══════════════════════════════════════');
+        logger.info('═══════════════════════════════');
+        logger.info('CONECTANDO CON XTREAM CODES');
+        logger.info('═══════════════════════════════');
         logger.info('Servidor: ' + this.server);
         logger.info('Usuario: ' + this.username);
-        logger.info('═══════════════════════════════════════');
 
         const url = this.buildPlaylistUrl();
-
-        logger.info('Descargando playlist...');
+        logger.info('URL: ' + url.substring(0, 80) + '...');
 
         try {
             let fetchUrl = url;
 
-            // Solo usar proxy si está activado
-            if (this.useCorsProxy && this.corsProxyUrl) {
-                fetchUrl = this.corsProxyUrl + encodeURIComponent(url);
-                logger.warning('Usando proxy CORS: ' + this.corsProxyUrl);
-            } else {
-                logger.success('Conexión directa (sin proxy)');
+            if (this.useCorsProxy) {
+                fetchUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+                logger.warning('Usando proxy CORS');
             }
 
             const response = await fetch(fetchUrl, {
                 method: 'GET',
-                headers: {
-                    'Accept': 'application/x-mpegURL, text/plain, */*'
-                }
+                headers: { 'Accept': '*/*' }
             });
 
-            logger.info(`Respuesta HTTP: ${response.status} ${response.statusText}`);
+            logger.info(`HTTP ${response.status} ${response.statusText}`);
 
             if (!response.ok) {
                 if (response.status === 401 || response.status === 403) {
-                    throw new Error('Autenticación fallida. Verifica usuario/contraseña.');
+                    throw new Error('Usuario o contraseña incorrectos');
                 } else if (response.status === 404) {
-                    throw new Error('Servidor no encontrado. Verifica la URL.');
+                    throw new Error('Servidor no encontrado');
                 }
                 throw new Error(`Error HTTP ${response.status}`);
             }
@@ -128,50 +109,22 @@ class XtreamAPI {
                 throw new Error('Playlist vacía');
             }
 
-            logger.success(`✅ Playlist descargada: ${content.length} caracteres`);
-
-            // Mostrar primeras líneas
-            const firstLines = content.split('\n').slice(0, 3).join('\n');
-            logger.info('Primeras líneas:');
-            logger.info(firstLines.substring(0, 150) + '...');
-
+            logger.success(`Playlist descargada: ${content.length} bytes`);
             return content;
 
         } catch (error) {
-            logger.error('═══════════════════════════════════════');
-            logger.error('ERROR AL CONECTAR CON XTREAM CODES');
-            logger.error('═══════════════════════════════════════');
-            logger.error('Mensaje: ' + error.message);
+            logger.error('Error al conectar: ' + error.message);
 
-            if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-                logger.warning('Problema de conexión o CORS');
+            if (error.message.includes('Failed to fetch')) {
+                logger.error('No se pudo conectar al servidor');
                 logger.info('SOLUCIONES:');
                 logger.info('1. Verifica que el servidor esté online');
-                logger.info('2. Verifica la URL del servidor');
-                logger.info('3. Si persiste, activa el proxy CORS');
-            } else if (error.message.includes('Autenticación')) {
-                logger.error('Usuario o contraseña incorrectos');
+                logger.info('2. Verifica la URL (debe incluir http://)');
+                logger.info('3. Activa el proxy CORS');
             }
 
-            logger.error('═══════════════════════════════════════');
             throw error;
         }
-    }
-
-    processStreamUrl(originalUrl) {
-        // Si la URL ya tiene credenciales Xtream, no hacer nada
-        if (originalUrl.includes(`/${this.username}/${this.password}/`)) {
-            logger.info('Stream con credenciales Xtream detectado');
-            return originalUrl;
-        }
-
-        // Si es una URL externa, aplicar proxy si está activado
-        if (this.useCorsProxy && this.corsProxyUrl && !originalUrl.includes(this.server)) {
-            logger.warning('URL externa, aplicando proxy');
-            return this.corsProxyUrl + encodeURIComponent(originalUrl);
-        }
-
-        return originalUrl;
     }
 }
 

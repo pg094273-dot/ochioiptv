@@ -1,123 +1,87 @@
-# IPTV Player - Xtream Codes API
+# IPTV Player - Versión Corregida
 
-## 🎯 Solución Definitiva
+## 🔧 Problemas Solucionados
 
-Esta versión soluciona el problema de "formato no soportado" usando **Xtream Codes API** correctamente.
+✅ **No se reproduce en navegadores** → HLS.js actualizado a v1.5.15
+✅ **No funciona en iPhone** → Soporte nativo HLS para iOS/Safari
+✅ **Errores de conexión** → Mejor manejo de errores + proxy CORS opcional
+✅ **URLs no construidas correctamente** → Lógica mejorada para Xtream Codes
 
-## ✨ Características
+## 🚀 Uso Rápido
 
-✅ **3 métodos de carga:**
-   1. **Xtream Codes API** (Servidor + Usuario + Contraseña) ⭐ RECOMENDADO
-   2. URL M3U directa
-   3. Archivo local
+### Paso 1: Ingresa tus datos Xtream Codes
 
-✅ **Las credenciales se aplican automáticamente a todos los streams**
-✅ **No más problemas con username/password en URLs**
-✅ **Proxy CORS opcional (desactivado por defecto)**
-
-## 🚀 Uso con Xtream Codes
-
-### Método 1: Xtream Codes API (RECOMENDADO)
-
-1. **Abre** `index.html`
-
-2. **Selecciona** la pestaña "🔑 Xtream Codes API" (ya está seleccionada por defecto)
-
-3. **Completa los campos:**
-   ```
-   Servidor: http://palanganas.dnsalias.net:8080
-   Usuario: alexpeluquero
-   Contraseña: vE9SeD34L8Hj
-   ```
-
-4. **Haz clic** en "🚀 Conectar con Xtream Codes"
-
-5. **Espera** a que cargue la lista de canales
-
-6. **Selecciona** un canal de la lista
-
-7. **Haz clic** en ▶️ REPRODUCIR
-
-### ¿Por qué funciona ahora?
-
-**ANTES (método antiguo):**
 ```
-URL: http://servidor:puerto/get.php?username=XXX&password=YYY&type=m3u
-Problema: Cada stream necesitaba las credenciales y el proxy las rompía
+Servidor:   http://palanganas.dnsalias.net:8080
+Usuario:    alexpeluquero
+Contraseña: vE9SeD34L8Hj
 ```
 
-**AHORA (Xtream Codes API):**
-```
-La app construye las URLs correctamente:
-• Live: http://servidor/live/usuario/contraseña/streamID.ts
-• Movies: http://servidor/movie/usuario/contraseña/streamID.mp4
-• Series: http://servidor/series/usuario/contraseña/streamID.mp4
+### Paso 2: Haz clic en "🚀 Conectar"
 
-Las credenciales se mantienen en TODAS las URLs automáticamente
-```
+### Paso 3: Selecciona un canal y haz clic en ▶️ REPRODUCIR
 
-## 📋 Otros Métodos
+## 🔍 Diagnóstico de Problemas
 
-### Método 2: URL M3U Directa
-- Para playlists públicas o con autenticación en la URL
-- Ejemplo: `https://iptv-org.github.io/iptv/countries/es.m3u`
+### Problema: "No se pudo conectar al servidor"
 
-### Método 3: Archivo Local
-- Carga un archivo .m3u desde tu computadora
-- Útil para playlists descargadas
+**Soluciones:**
+1. Verifica que la URL del servidor sea correcta (debe incluir http://)
+2. Verifica que el servidor esté online
+3. **Activa el checkbox "🔓 Proxy CORS"** (en configuración)
+4. Recarga la página e intenta de nuevo
 
-## 🔧 Configuración Proxy
+### Problema: "Usuario o contraseña incorrectos"
 
-**Por defecto:** DESACTIVADO (recomendado)
+**Soluciones:**
+1. Verifica el usuario y contraseña
+2. Asegúrate de no tener espacios al principio o final
+3. Contacta con tu proveedor IPTV
 
-Solo actívalo si:
-- No puedes cargar la playlist
-- Aparecen errores CORS
-- El servidor lo requiere
+### Problema: "Formato no soportado" al reproducir
 
-## 💾 Datos Guardados
+**Soluciones:**
+1. El stream puede estar offline, prueba otro canal
+2. En iPhone: Asegúrate de tener iOS 10 o superior
+3. Verifica que las credenciales sean correctas
+4. Activa "🧪 Modo de prueba (URLs directas)" si persiste
 
-La app guarda automáticamente:
-- ✅ Servidor Xtream Codes
-- ✅ Usuario
-- ✅ Contraseña
-- ✅ Último método usado
+### Problema: No reproduce en iPhone
 
-Al recargar la página, tus credenciales estarán ahí.
+**Soluciones:**
+1. Usa Safari (es el navegador recomendado para iPhone)
+2. Asegúrate de hacer clic en el botón ▶️ REPRODUCIR
+3. iPhone requiere interacción del usuario para reproducir
+4. Verifica que no tengas el modo de bajo consumo activado
 
-## ❓ Solución de Problemas
+## ⚙️ Configuración
 
-### "Error de autenticación"
-✅ Verifica usuario y contraseña
-✅ Asegúrate de que el servidor sea correcto
+### Proxy CORS
+- **Desactivado** (recomendado): Conexión directa al servidor
+- **Activado**: Usa proxy para evitar bloqueos CORS (útil si no conecta)
 
-### "Servidor no encontrado"
-✅ Verifica la URL del servidor
-✅ Asegúrate de incluir http:// o https://
-✅ Verifica que el puerto sea correcto
+### Modo de prueba
+- **Activado**: Usa las URLs tal cual sin procesamiento
+- **Desactivado**: Construye URLs Xtream automáticamente
 
-### "No se pudo cargar la playlist"
-✅ Verifica que el servidor esté online
-✅ Prueba activar el proxy CORS
-✅ Verifica tu conexión a internet
+## 📱 Soporte de Dispositivos
 
-### "Formato no soportado" al reproducir
-✅ El stream puede estar offline
-✅ Prueba con otro canal
-✅ Verifica que las credenciales sean correctas
+✅ iPhone/iPad (Safari)
+✅ Android (Chrome, Firefox)
+✅ PC Windows (Chrome, Firefox, Edge)
+✅ PC Mac (Safari, Chrome)
 
 ## 🎬 Formatos Soportados
 
-- ✅ HLS (m3u8)
-- ✅ MPEG-TS (.ts)
-- ✅ MP4
-- ✅ Streams en vivo
-- ✅ VOD (películas y series)
+- HLS (m3u8)
+- MPEG-TS (.ts)
+- MP4
+- Streams Xtream Codes
 
 ## ⚠️ Aviso Legal
 
 Esta aplicación NO proporciona contenido IPTV.
-Solo reproduce fuentes legales a las que el usuario tenga acceso autorizado.
+Solo reproduce fuentes legales autorizadas.
 
 ---
-Versión Xtream Codes API | 2026
+Versión Corregida | 2026

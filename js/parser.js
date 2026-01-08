@@ -7,19 +7,13 @@ class M3UParser {
     }
 
     parse(content) {
-        logger.info('Iniciando parseo de playlist M3U...');
+        logger.info('Parseando playlist M3U...');
 
         if (!content || content.trim().length === 0) {
-            logger.error('Playlist vacía');
             throw new Error('Playlist vacía');
         }
 
         const lines = content.split('\n').map(l => l.trim()).filter(l => l);
-
-        if (!lines[0] || !lines[0].includes('#EXTM3U')) {
-            logger.warning('Playlist no comienza con #EXTM3U (puede funcionar igual)');
-        }
-
         const items = [];
         let current = null;
 
@@ -28,7 +22,7 @@ class M3UParser {
 
             if (line.startsWith('#EXTINF:')) {
                 current = {
-                    name: 'Sin nombre',
+                    name: 'Canal',
                     logo: '',
                     group: 'General',
                     url: '',
@@ -36,7 +30,6 @@ class M3UParser {
                     type: 'live'
                 };
 
-                // Extraer atributos
                 const logoMatch = line.match(/tvg-logo="([^"]*)"/);
                 if (logoMatch) current.logo = logoMatch[1];
 
@@ -46,28 +39,27 @@ class M3UParser {
                 const idMatch = line.match(/tvg-id="([^"]*)"/);
                 if (idMatch) current.streamId = idMatch[1];
 
-                // Nombre del canal (después de la última coma)
                 const parts = line.split(',');
                 if (parts.length > 1) {
                     current.name = parts[parts.length - 1].trim();
                 }
 
-                // Detectar tipo por nombre/grupo
                 const text = (current.name + ' ' + current.group).toLowerCase();
-
-                if (text.match(/\b(movie|pelicula|film|cine|cinema)\b/)) {
+                if (text.match(/movie|pelicula|film|cine/)) {
                     current.type = 'movie';
-                } else if (text.match(/\b(serie|series|season|temporada|episode|episodio|capitulo)\b/)) {
+                } else if (text.match(/serie|series|season|temporada/)) {
                     current.type = 'series';
                 }
 
             } else if (line && !line.startsWith('#') && current) {
                 current.url = line;
 
-                // Extraer stream ID de URLs Xtream Codes
-                const xtreamMatch = line.match(/\/(?:live|movie|series)\/[^\/]+\/[^\/]+\/(\d+)/);
+                // Extraer stream ID de URLs Xtream
+                const xtreamMatch = line.match(/\/(live|movie|series)\/[^\/]+\/[^\/]+\/(\d+)/);
                 if (xtreamMatch) {
-                    current.streamId = xtreamMatch[1];
+                    current.streamId = xtreamMatch[2];
+                    if (xtreamMatch[1] === 'movie') current.type = 'movie';
+                    else if (xtreamMatch[1] === 'series') current.type = 'series';
                 }
 
                 items.push(current);
@@ -76,28 +68,22 @@ class M3UParser {
         }
 
         this.allContent = items;
-        this.categorize();
+        this.liveChannels = items.filter(i => i.type === 'live');
+        this.movies = items.filter(i => i.type === 'movie');
+        this.series = items.filter(i => i.type === 'series');
 
-        logger.success(`✅ Parseados ${items.length} items`);
-        logger.info(`├─ ${this.liveChannels.length} canales en vivo`);
-        logger.info(`├─ ${this.movies.length} películas`);
-        logger.info(`└─ ${this.series.length} series`);
+        logger.success(`Parseados ${items.length} items`);
+        logger.info(`TV: ${this.liveChannels.length} | Películas: ${this.movies.length} | Series: ${this.series.length}`);
 
         return items;
-    }
-
-    categorize() {
-        this.liveChannels = this.allContent.filter(i => i.type === 'live');
-        this.movies = this.allContent.filter(i => i.type === 'movie');
-        this.series = this.allContent.filter(i => i.type === 'series');
     }
 
     filterByName(items, term) {
         if (!term) return items;
         term = term.toLowerCase();
-        return items.filter(item => 
-            item.name.toLowerCase().includes(term) || 
-            item.group.toLowerCase().includes(term)
+        return items.filter(i => 
+            i.name.toLowerCase().includes(term) || 
+            i.group.toLowerCase().includes(term)
         );
     }
 
