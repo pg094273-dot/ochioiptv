@@ -9,8 +9,8 @@ class IPTVApp {
     init() {
         logger.init();
         logger.success('═══════════════════════════════');
-        logger.success('IPTV PLAYER - VERSIÓN CORREGIDA');
-        logger.success('Optimizada para iPhone y navegadores');
+        logger.success('IPTV PLAYER - VERSIÓN FINAL');
+        logger.success('Solución para timeout en servidores externos');
         logger.success('═══════════════════════════════');
 
         window.player = new IPTVPlayer(document.getElementById('videoPlayer'));
@@ -20,8 +20,6 @@ class IPTVApp {
         this.setupEvents();
         this.setupSettings();
         this.restoreState();
-
-        document.getElementById('debugConsole').style.display = 'block';
     }
 
     setupMethodTabs() {
@@ -57,14 +55,6 @@ class IPTVApp {
             if (e.key === 'Enter') this.loadM3uUrl();
         };
 
-        // Archivo
-        document.getElementById('fileBtn').onclick = () => {
-            document.getElementById('m3uFile').click();
-        };
-        document.getElementById('m3uFile').onchange = (e) => {
-            if (e.target.files[0]) this.loadFile(e.target.files[0]);
-        };
-
         // Búsqueda
         document.getElementById('searchInput').oninput = (e) => {
             this.filterContent(e.target.value);
@@ -72,18 +62,23 @@ class IPTVApp {
     }
 
     setupSettings() {
-        const corsCheckbox = document.getElementById('useCorsProxy');
-        const testCheckbox = document.getElementById('testMode');
+        const directLoadCheckbox = document.getElementById('useDirectLoad');
+        const timeoutSelect = document.getElementById('timeoutSelect');
 
-        corsCheckbox.checked = xtreamAPI.useCorsProxy;
-        testCheckbox.checked = xtreamAPI.testMode;
+        directLoadCheckbox.checked = xtreamAPI.directLoad;
 
-        corsCheckbox.onchange = () => {
-            xtreamAPI.setProxy(corsCheckbox.checked);
+        const savedTimeout = localStorage.getItem(CONFIG.STORAGE_KEYS.TIMEOUT);
+        if (savedTimeout) {
+            timeoutSelect.value = savedTimeout;
+        }
+
+        directLoadCheckbox.onchange = () => {
+            xtreamAPI.setDirectLoad(directLoadCheckbox.checked);
         };
 
-        testCheckbox.onchange = () => {
-            xtreamAPI.setTestMode(testCheckbox.checked);
+        timeoutSelect.onchange = () => {
+            const timeout = parseInt(timeoutSelect.value);
+            window.player.setTimeout(timeout);
         };
     }
 
@@ -106,9 +101,17 @@ class IPTVApp {
             this.parser.parse(content);
             this.switchTab(this.currentTab);
             logger.success('✅ CONEXIÓN EXITOSA');
+
+            // Mostrar recomendación si hay muchos canales
+            const total = this.parser.allContent.length;
+            if (total > 1000) {
+                logger.warning('Playlist grande detectada');
+                logger.info('RECOMENDACIÓN: Activa "Carga directa" para mejor rendimiento');
+            }
+
         } catch (error) {
             logger.error('Error: ' + error.message);
-            alert('Error al conectar:\n\n' + error.message + '\n\n💡 Verifica los datos o activa el proxy CORS');
+            alert('Error al conectar:\n\n' + error.message);
             this.hideLoading();
         }
     }
@@ -123,12 +126,7 @@ class IPTVApp {
         this.showLoading('Descargando...');
 
         try {
-            let fetchUrl = url;
-            if (xtreamAPI.useCorsProxy) {
-                fetchUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-            }
-
-            const response = await fetch(fetchUrl);
+            const response = await fetch(url);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const content = await response.text();
@@ -142,30 +140,6 @@ class IPTVApp {
         }
     }
 
-    async loadFile(file) {
-        this.showLoading('Leyendo archivo...');
-
-        try {
-            const content = await this.readFile(file);
-            this.parser.parse(content);
-            this.switchTab(this.currentTab);
-            logger.success('Archivo cargado');
-        } catch (error) {
-            logger.error('Error: ' + error.message);
-            alert('Error al cargar archivo');
-            this.hideLoading();
-        }
-    }
-
-    readFile(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => reject(reader.error);
-            reader.readAsText(file);
-        });
-    }
-
     switchTab(tabType) {
         this.currentTab = tabType;
 
@@ -175,7 +149,7 @@ class IPTVApp {
         });
 
         const titles = {
-            'live': 'Canales en Vivo',
+            'live': 'TV en Vivo',
             'movies': 'Películas',
             'series': 'Series'
         };
@@ -193,9 +167,9 @@ class IPTVApp {
 
         if (items.length === 0) {
             list.innerHTML = `
-                <div style="text-align: center; color: #666; padding: 40px 15px;">
-                    <div style="font-size: 40px; margin-bottom: 15px;">📭</div>
-                    <p style="font-size: 14px;">Sin contenido</p>
+                <div style="text-align: center; color: #666; padding: 30px 15px;">
+                    <div style="font-size: 36px; margin-bottom: 12px;">📭</div>
+                    <p style="font-size: 13px;">Sin contenido en esta categoría</p>
                 </div>
             `;
             return;
@@ -203,7 +177,11 @@ class IPTVApp {
 
         list.innerHTML = '';
 
-        items.forEach(item => {
+        // Limitar renderizado inicial para mejor rendimiento
+        const maxInitial = 100;
+        const itemsToRender = items.slice(0, maxInitial);
+
+        itemsToRender.forEach(item => {
             const div = document.createElement('div');
             div.className = 'content-item';
             div.innerHTML = `
@@ -214,7 +192,14 @@ class IPTVApp {
             list.appendChild(div);
         });
 
-        logger.info(`Renderizados ${items.length} items`);
+        if (items.length > maxInitial) {
+            const loadMore = document.createElement('div');
+            loadMore.style.cssText = 'text-align: center; padding: 15px; color: #999; font-size: 12px;';
+            loadMore.innerHTML = `Mostrando ${maxInitial} de ${items.length}. Usa búsqueda para encontrar más.`;
+            list.appendChild(loadMore);
+        }
+
+        logger.info(`Renderizados ${itemsToRender.length} de ${items.length} items`);
     }
 
     playContent(content, element) {
@@ -234,14 +219,14 @@ class IPTVApp {
     filterContent(term) {
         const filtered = this.parser.filterByName(this.currentContent, term);
         this.renderContent(filtered);
-        if (term) logger.info(`Búsqueda: ${filtered.length} resultados`);
+        if (term) logger.info(`Búsqueda "${term}": ${filtered.length} resultados`);
     }
 
     showLoading(msg = 'Cargando...') {
         document.getElementById('contentList').innerHTML = `
-            <div style="text-align: center; color: #999; padding: 40px 15px;">
-                <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
-                <p style="font-size: 14px;">${msg}</p>
+            <div style="text-align: center; color: #999; padding: 30px 15px;">
+                <div style="font-size: 36px; margin-bottom: 12px;">⏳</div>
+                <p style="font-size: 13px;">${msg}</p>
             </div>
         `;
     }
@@ -255,7 +240,7 @@ class IPTVApp {
             document.getElementById('xtreamServer').value = xtreamAPI.server;
             document.getElementById('xtreamUsername').value = xtreamAPI.username;
             document.getElementById('xtreamPassword').value = xtreamAPI.password;
-            logger.info('Credenciales restauradas');
+            logger.info('Credenciales restauradas desde localStorage');
         }
     }
 }

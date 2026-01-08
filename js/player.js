@@ -3,8 +3,23 @@ class IPTVPlayer {
         this.video = videoElement;
         this.hls = null;
         this.currentContent = null;
+        this.timeout = 30000;
+        this.loadTimeout = null;
         this.setupEvents();
+        this.loadTimeoutSetting();
         logger.success('Reproductor inicializado');
+    }
+
+    loadTimeoutSetting() {
+        const saved = localStorage.getItem(CONFIG.STORAGE_KEYS.TIMEOUT);
+        this.timeout = saved ? parseInt(saved) : CONFIG.DEFAULT_TIMEOUT;
+        logger.info(`Timeout configurado: ${this.timeout/1000}s`);
+    }
+
+    setTimeout(ms) {
+        this.timeout = ms;
+        localStorage.setItem(CONFIG.STORAGE_KEYS.TIMEOUT, ms);
+        logger.info(`Timeout actualizado: ${ms/1000}s`);
     }
 
     setupEvents() {
@@ -14,15 +29,18 @@ class IPTVPlayer {
 
         this.video.addEventListener('loadedmetadata', () => {
             logger.success('Metadata cargada');
+            this.clearLoadTimeout();
         });
 
         this.video.addEventListener('canplay', () => {
-            logger.success('Stream listo');
+            logger.success('Stream listo para reproducir');
+            this.clearLoadTimeout();
         });
 
         this.video.addEventListener('playing', () => {
             logger.success('▶️ REPRODUCIENDO');
             document.getElementById('videoOverlay').classList.add('hidden');
+            this.clearLoadTimeout();
         });
 
         this.video.addEventListener('pause', () => {
@@ -34,19 +52,33 @@ class IPTVPlayer {
         });
 
         this.video.addEventListener('error', (e) => {
+            this.clearLoadTimeout();
             const error = this.video.error;
             if (!error) return;
 
             let msg = '';
+            let solution = '';
             switch(error.code) {
-                case 1: msg = 'Carga abortada'; break;
-                case 2: msg = 'Error de red - Stream offline o inaccesible'; break;
-                case 3: msg = 'Error de decodificación - Formato corrupto'; break;
-                case 4: msg = 'Formato no soportado o URL inválida'; break;
+                case 1: 
+                    msg = 'Carga abortada'; 
+                    solution = 'Reintenta o prueba otro canal';
+                    break;
+                case 2: 
+                    msg = 'Error de red';
+                    solution = 'Stream offline o inaccesible. Prueba otro canal o aumenta el timeout.';
+                    break;
+                case 3: 
+                    msg = 'Error de decodificación'; 
+                    solution = 'Formato corrupto. Prueba otro canal.';
+                    break;
+                case 4: 
+                    msg = 'Formato no soportado';
+                    solution = 'El navegador no soporta este formato. Prueba con Safari en iPhone o aumenta el timeout.';
+                    break;
             }
 
             logger.error('Error en video: ' + msg);
-            this.handleError(msg);
+            this.handleError(msg, solution);
         });
     }
 
@@ -60,34 +92,75 @@ class IPTVPlayer {
         this.currentContent = content;
         this.cleanup();
 
-        // Construir URL correcta
-        let finalUrl = url;
-        if (content.streamId && xtreamAPI.server && xtreamAPI.username && xtreamAPI.password) {
-            finalUrl = xtreamAPI.buildStreamUrl(url, content.streamId, content.type);
-            logger.info('URL construida con credenciales Xtream');
-        }
+        logger.info('URL original: ' + url.substring(0, 100) + '...');
 
-        logger.info('URL: ' + finalUrl.substring(0, 100) + '...');
-
-        // Detectar tipo
-        const isHLS = finalUrl.toLowerCase().includes('.m3u8') || 
-                      finalUrl.toLowerCase().includes('.ts') ||
+        // Detectar tipo de stream
+        const isHLS = url.toLowerCase().includes('.m3u8') || 
+                      url.toLowerCase().includes('.ts') ||
                       content.type === 'live';
 
-        logger.info('Formato: ' + (isHLS ? 'HLS' : 'MP4'));
+        logger.info('Formato detectado: ' + (isHLS ? 'HLS/TS' : 'MP4'));
+        logger.info(`Timeout: ${this.timeout/1000}s`);
         logger.info('═══════════════════════════════');
 
+        // Configurar timeout de carga
+        this.startLoadTimeout();
+
         if (isHLS) {
-            this.loadHLS(finalUrl);
+            this.loadHLS(url);
         } else {
-            this.loadDirect(finalUrl);
+            this.loadDirect(url);
         }
     }
 
+    startLoadTimeout() {
+        this.clearLoadTimeout();
+        logger.warning(`Iniciando timeout de ${this.timeout/1000}s...`);
+
+        this.loadTimeout = setTimeout(() => {
+            logger.error('TIMEOUT: Stream tardó demasiado en cargar');
+
+            // Si estamos usando HLS.js, intentar carga directa
+            if (this.hls && xtreamAPI.directLoad) {
+                logger.warning('Reintentando con carga directa...');
+                this.retryDirectLoad();
+            } else {
+                this.handleError(
+                    'Timeout al cargar stream',
+                    'SOLUCIONES:\n1. Activa "Carga directa" en configuración\n2. Aumenta el timeout a 60s\n3. Prueba otro canal'
+                );
+            }
+        }, this.timeout);
+    }
+
+    clearLoadTimeout() {
+        if (this.loadTimeout) {
+            clearTimeout(this.loadTimeout);
+            this.loadTimeout = null;
+        }
+    }
+
+    retryDirectLoad() {
+        if (!this.currentContent) return;
+
+        logger.info('═══════════════════════════════');
+        logger.info('REINTENTO CON CARGA DIRECTA');
+        logger.info('═══════════════════════════════');
+
+        this.cleanup();
+        this.loadDirect(this.currentContent.url);
+    }
+
     loadHLS(url) {
-        // Detectar si es iOS/Safari
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        // Si está activada la carga directa, usar nativa siempre
+        if (xtreamAPI.directLoad) {
+            logger.info('Usando carga DIRECTA (modo activado)');
+            this.loadNativeHLS(url);
+            return;
+        }
 
         if ((isIOS || isSafari) && this.video.canPlayType('application/vnd.apple.mpegurl')) {
             logger.info('Usando HLS nativo (iOS/Safari)');
@@ -96,8 +169,8 @@ class IPTVPlayer {
             logger.info('Usando HLS.js');
             this.loadHLSjs(url);
         } else {
-            logger.warning('HLS no soportado, intentando reproducción directa');
-            this.loadDirect(url);
+            logger.warning('HLS no soportado, usando carga directa');
+            this.loadNativeHLS(url);
         }
     }
 
@@ -105,8 +178,12 @@ class IPTVPlayer {
         this.video.src = url;
 
         this.video.addEventListener('loadedmetadata', () => {
-            logger.success('Metadata HLS cargada');
+            logger.success('Metadata HLS cargada (nativo)');
             this.showPlayButton();
+        }, { once: true });
+
+        this.video.addEventListener('error', () => {
+            logger.error('Error en carga nativa');
         }, { once: true });
 
         this.video.load();
@@ -117,32 +194,70 @@ class IPTVPlayer {
             debug: false,
             enableWorker: true,
             lowLatencyMode: false,
-            backBufferLength: 90
+            backBufferLength: 90,
+            manifestLoadingTimeOut: this.timeout,
+            manifestLoadingMaxRetry: 3,
+            manifestLoadingRetryDelay: 1000,
+            levelLoadingTimeOut: this.timeout,
+            fragLoadingTimeOut: this.timeout
         });
 
         this.hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
             logger.success('Manifest HLS cargado');
-            logger.info(`Calidades: ${data.levels.length}`);
+            logger.info(`Calidades disponibles: ${data.levels.length}`);
+            this.clearLoadTimeout();
             this.showPlayButton();
+        });
+
+        this.hls.on(Hls.Events.MANIFEST_LOADING, () => {
+            logger.info('Descargando manifest...');
+        });
+
+        this.hls.on(Hls.Events.LEVEL_LOADED, () => {
+            logger.info('Nivel cargado');
+        });
+
+        this.hls.on(Hls.Events.FRAG_LOADED, () => {
+            logger.info('Fragmento cargado');
         });
 
         this.hls.on(Hls.Events.ERROR, (event, data) => {
             if (data.fatal) {
                 logger.error(`Error HLS: ${data.type} - ${data.details}`);
+                this.clearLoadTimeout();
 
                 switch(data.type) {
                     case Hls.ErrorTypes.NETWORK_ERROR:
-                        logger.warning('Error de red, reintentando...');
-                        setTimeout(() => {
-                            if (this.hls) this.hls.startLoad();
-                        }, 1000);
+                        if (data.details === 'manifestLoadTimeOut') {
+                            logger.error('TIMEOUT al cargar manifest');
+
+                            if (xtreamAPI.directLoad) {
+                                logger.warning('Reintentando con carga directa...');
+                                this.retryDirectLoad();
+                            } else {
+                                this.handleError(
+                                    'Timeout al cargar stream',
+                                    '✅ SOLUCIÓN: Activa "Carga directa" arriba y recarga el canal'
+                                );
+                            }
+                        } else {
+                            logger.warning('Error de red, reintentando...');
+                            setTimeout(() => {
+                                if (this.hls) this.hls.startLoad();
+                            }, 1000);
+                        }
                         break;
+
                     case Hls.ErrorTypes.MEDIA_ERROR:
                         logger.warning('Error de medios, recuperando...');
                         if (this.hls) this.hls.recoverMediaError();
                         break;
+
                     default:
-                        this.handleError('Error fatal en stream', 'Prueba con otro canal');
+                        this.handleError(
+                            'Error fatal en stream',
+                            'Prueba con otro canal o activa "Carga directa"'
+                        );
                         this.cleanup();
                 }
             }
@@ -153,10 +268,11 @@ class IPTVPlayer {
     }
 
     loadDirect(url) {
-        logger.info('Cargando stream directo...');
+        logger.info('Cargando stream DIRECTO...');
         this.video.src = url;
 
         this.video.addEventListener('loadedmetadata', () => {
+            logger.success('Stream cargado (directo)');
             this.showPlayButton();
         }, { once: true });
 
@@ -169,12 +285,12 @@ class IPTVPlayer {
 
         overlay.classList.remove('hidden');
         overlay.innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <div style="font-size: 100px; margin-bottom: 20px; cursor: pointer;" 
+            <div style="text-align: center; padding: 30px;">
+                <div style="font-size: 80px; margin-bottom: 15px; cursor: pointer;" 
                      onclick="window.player.play()">▶️</div>
-                <h2 style="margin-bottom: 15px; font-size: 24px;">Listo para reproducir</h2>
+                <h2 style="margin-bottom: 12px; font-size: 20px;">Listo</h2>
                 <button onclick="window.player.play()" 
-                        style="padding: 15px 40px; background: #e50914; border: none; color: white; border-radius: 6px; font-size: 18px; font-weight: bold; cursor: pointer;">
+                        style="padding: 12px 35px; background: #e50914; border: none; color: white; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer;">
                     ▶️ REPRODUCIR
                 </button>
             </div>
@@ -182,23 +298,26 @@ class IPTVPlayer {
     }
 
     play() {
-        logger.info('Iniciando reproducción manual...');
+        logger.info('Iniciando reproducción...');
 
         const playPromise = this.video.play();
 
         if (playPromise !== undefined) {
             playPromise
                 .then(() => {
-                    logger.success('✅ Reproducción iniciada');
+                    logger.success('✅ Reproducción iniciada correctamente');
                     document.getElementById('videoOverlay').classList.add('hidden');
                 })
                 .catch(error => {
                     logger.error('Error al reproducir: ' + error.message);
 
                     if (error.name === 'NotAllowedError') {
-                        alert('Navegador bloqueó reproducción.\n\nHaz clic de nuevo en REPRODUCIR.');
+                        alert('El navegador bloqueó la reproducción.\n\nHaz clic de nuevo en REPRODUCIR.');
                     } else if (error.name === 'NotSupportedError') {
-                        this.handleError('Formato no compatible', 'Prueba otro canal');
+                        this.handleError(
+                            'Formato no compatible',
+                            'Activa "Carga directa" o prueba con Safari en iPhone'
+                        );
                     } else {
                         this.handleError('No se pudo reproducir', error.message);
                     }
@@ -207,22 +326,19 @@ class IPTVPlayer {
     }
 
     handleError(message, detail = '') {
-        logger.error('Mostrando error: ' + message);
+        logger.error('Error de reproducción: ' + message);
 
         const overlay = document.getElementById('videoOverlay');
         if (overlay) {
             overlay.classList.remove('hidden');
             overlay.innerHTML = `
-                <div style="text-align: center; padding: 30px; max-width: 500px; margin: 0 auto;">
-                    <div style="font-size: 60px; margin-bottom: 20px;">⚠️</div>
-                    <h2 style="margin-bottom: 15px; color: #f87171; font-size: 20px;">Error de Reproducción</h2>
-                    <p style="color: #fff; font-size: 15px; margin-bottom: 15px;">
-                        ${message}
-                    </p>
-                    ${detail ? `<p style="color: #999; font-size: 13px; margin-bottom: 20px;">${detail}</p>` : ''}
+                <div style="text-align: center; padding: 25px; max-width: 450px; margin: 0 auto;">
+                    <div style="font-size: 50px; margin-bottom: 15px;">⚠️</div>
+                    <h2 style="margin-bottom: 12px; color: #f87171; font-size: 18px;">${message}</h2>
+                    ${detail ? `<p style="color: #fff; font-size: 13px; margin-bottom: 15px; white-space: pre-line;">${detail}</p>` : ''}
                     <button onclick="document.getElementById('debugConsole').style.display='block'" 
-                            style="padding: 10px 25px; background: #e50914; border: none; color: white; border-radius: 6px; font-size: 14px; cursor: pointer;">
-                        Ver Log
+                            style="padding: 8px 20px; background: #e50914; border: none; color: white; border-radius: 5px; font-size: 13px; cursor: pointer;">
+                        Ver Log Completo
                     </button>
                 </div>
             `;
@@ -232,6 +348,7 @@ class IPTVPlayer {
     }
 
     cleanup() {
+        this.clearLoadTimeout();
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;

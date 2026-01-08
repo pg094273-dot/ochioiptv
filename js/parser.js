@@ -54,7 +54,6 @@ class M3UParser {
             } else if (line && !line.startsWith('#') && current) {
                 current.url = line;
 
-                // Extraer stream ID de URLs Xtream
                 const xtreamMatch = line.match(/\/(live|movie|series)\/[^\/]+\/[^\/]+\/(\d+)/);
                 if (xtreamMatch) {
                     current.streamId = xtreamMatch[2];

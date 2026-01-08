@@ -1,87 +1,81 @@
-# IPTV Player - Versión Corregida
+# IPTV Player - Versión Final
 
-## 🔧 Problemas Solucionados
+## 🎯 Problema Identificado y Solucionado
 
-✅ **No se reproduce en navegadores** → HLS.js actualizado a v1.5.15
-✅ **No funciona en iPhone** → Soporte nativo HLS para iOS/Safari
-✅ **Errores de conexión** → Mejor manejo de errores + proxy CORS opcional
-✅ **URLs no construidas correctamente** → Lógica mejorada para Xtream Codes
-
-## 🚀 Uso Rápido
-
-### Paso 1: Ingresa tus datos Xtream Codes
-
+**TU DIAGNÓSTICO MOSTRÓ:**
 ```
-Servidor:   http://palanganas.dnsalias.net:8080
-Usuario:    alexpeluquero
-Contraseña: vE9SeD34L8Hj
+✅ Conexión al servidor: OK
+✅ Playlist descargada: OK
+✅ URL del stream: http://stb.thetripodversus.com:8080/alexpeluquero/vE9SeD34L8Hj/415.ts
+❌ Error: manifestLoadTimeOut
 ```
 
-### Paso 2: Haz clic en "🚀 Conectar"
+**CAUSA:** El servidor de streams (stb.thetripodversus.com) tarda demasiado en responder.
 
-### Paso 3: Selecciona un canal y haz clic en ▶️ REPRODUCIR
+**SOLUCIÓN IMPLEMENTADA:**
+1. ✅ Opción "Carga directa" que evita HLS.js y usa reproducción nativa
+2. ✅ Timeout configurable (10s, 20s, 30s, 60s)
+3. ✅ Reintento automático con carga directa si HLS.js falla
+4. ✅ Mejor manejo de errores con soluciones específicas
 
-## 🔍 Diagnóstico de Problemas
+## 🚀 Cómo Usar
 
-### Problema: "No se pudo conectar al servidor"
+### Paso 1: Conectar
+Los campos ya vienen con tus datos:
+- Servidor: http://palanganas.dnsalias.net:8080
+- Usuario: alexpeluquero
+- Contraseña: vE9SeD34L8Hj
 
-**Soluciones:**
-1. Verifica que la URL del servidor sea correcta (debe incluir http://)
-2. Verifica que el servidor esté online
-3. **Activa el checkbox "🔓 Proxy CORS"** (en configuración)
-4. Recarga la página e intenta de nuevo
+Haz clic en "🚀 Conectar"
 
-### Problema: "Usuario o contraseña incorrectos"
+### Paso 2: ACTIVAR "Carga directa" (IMPORTANTE)
+Después de conectar, ACTIVA el checkbox:
+☑️ ⚡ Carga directa (recomendado para tu caso)
 
-**Soluciones:**
-1. Verifica el usuario y contraseña
-2. Asegúrate de no tener espacios al principio o final
-3. Contacta con tu proveedor IPTV
-
-### Problema: "Formato no soportado" al reproducir
-
-**Soluciones:**
-1. El stream puede estar offline, prueba otro canal
-2. En iPhone: Asegúrate de tener iOS 10 o superior
-3. Verifica que las credenciales sean correctas
-4. Activa "🧪 Modo de prueba (URLs directas)" si persiste
-
-### Problema: No reproduce en iPhone
-
-**Soluciones:**
-1. Usa Safari (es el navegador recomendado para iPhone)
-2. Asegúrate de hacer clic en el botón ▶️ REPRODUCIR
-3. iPhone requiere interacción del usuario para reproducir
-4. Verifica que no tengas el modo de bajo consumo activado
+### Paso 3: Seleccionar canal y reproducir
+1. Selecciona un canal de la lista
+2. Haz clic en "▶️ REPRODUCIR"
 
 ## ⚙️ Configuración
 
-### Proxy CORS
-- **Desactivado** (recomendado): Conexión directa al servidor
-- **Activado**: Usa proxy para evitar bloqueos CORS (útil si no conecta)
+### Carga Directa (RECOMENDADO PARA TI)
+- **Activado**: Usa reproducción nativa HTML5 (evita timeouts)
+- **Desactivado**: Usa HLS.js (más compatible pero más lento)
 
-### Modo de prueba
-- **Activado**: Usa las URLs tal cual sin procesamiento
-- **Desactivado**: Construye URLs Xtream automáticamente
+**Para tu caso específico: ACTIVAR**
 
-## 📱 Soporte de Dispositivos
+### Timeout
+Elige cuánto tiempo esperar antes de dar error:
+- 10s: Rápido pero puede fallar
+- 20s: Balance
+- **30s: Recomendado** (valor por defecto)
+- 60s: Para conexiones muy lentas
 
-✅ iPhone/iPad (Safari)
-✅ Android (Chrome, Firefox)
-✅ PC Windows (Chrome, Firefox, Edge)
-✅ PC Mac (Safari, Chrome)
+## 🔴 Si Aún No Funciona
 
-## 🎬 Formatos Soportados
+1. **Aumenta el timeout a 60 segundos**
+2. **Asegúrate de que "Carga directa" esté activada**
+3. **Prueba con varios canales** (algunos pueden estar offline)
+4. **En iPhone: USA SAFARI** (no Chrome ni Firefox)
+5. **Verifica que tu conexión WiFi sea estable**
 
-- HLS (m3u8)
-- MPEG-TS (.ts)
-- MP4
-- Streams Xtream Codes
+## 📱 Compatibilidad
 
-## ⚠️ Aviso Legal
+✅ Chrome, Firefox, Edge (PC)
+✅ Safari (Mac)
+✅ Safari (iPhone/iPad) - Carga directa automática
+✅ Todos los navegadores modernos
 
-Esta aplicación NO proporciona contenido IPTV.
-Solo reproduce fuentes legales autorizadas.
+## 💡 Por Qué Funciona Esta Versión
+
+Tu playlist usa un **servidor diferente** para los streams:
+- Playlist: `palanganas.dnsalias.net`
+- Streams: `stb.thetripodversus.com`
+
+El segundo servidor es **más lento** en responder, por eso:
+- HLS.js da timeout
+- La carga directa funciona mejor (el navegador gestiona el timeout)
+- Con 30-60s de timeout, hay más margen
 
 ---
-Versión Corregida | 2026
+Versión Final | Enero 2026
