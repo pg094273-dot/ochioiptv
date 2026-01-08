@@ -1,20 +1,18 @@
 class Logger {
     constructor() {
         this.logElement = null;
-        this.logs = [];
     }
     init() {
         this.logElement = document.getElementById('debugLog');
-        this.success('Logger iniciado');
+        this.log('✅ Logger iniciado', 'success');
     }
     log(msg, type = 'info') {
         const time = new Date().toLocaleTimeString();
         const entry = `[${time}] ${msg}`;
         console.log(entry);
-        this.logs.push({ msg: entry, type });
         if (this.logElement) {
             const div = document.createElement('div');
-            div.className = `debug-log-item ${type}`;
+            div.className = `log-item log-${type}`;
             div.textContent = entry;
             this.logElement.appendChild(div);
             this.logElement.scrollTop = this.logElement.scrollHeight;
@@ -24,9 +22,6 @@ class Logger {
     error(msg) { this.log('❌ ' + msg, 'error'); }
     warning(msg) { this.log('⚠️ ' + msg, 'warning'); }
     info(msg) { this.log('ℹ️ ' + msg, 'info'); }
-    clear() {
-        this.logs = [];
-        if (this.logElement) this.logElement.innerHTML = '';
-    }
+    clear() { if (this.logElement) this.logElement.innerHTML = ''; }
 }
 const logger = new Logger();

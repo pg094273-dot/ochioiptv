@@ -1,10 +1,10 @@
 const CONFIG = {
+    TMDB_API_KEY: 'e547e17d4e91f3e62a571655cd1ccaff',
+    TMDB_BASE_URL: 'https://api.themoviedb.org/3',
+    TMDB_IMAGE_BASE: 'https://image.tmdb.org/t/p/w500',
     STORAGE_KEYS: {
-        XTREAM_SERVER: 'iptv_xtream_server',
-        XTREAM_USERNAME: 'iptv_xtream_username',
-        XTREAM_PASSWORD: 'iptv_xtream_password',
-        DIRECT_LOAD: 'iptv_direct_load',
-        TIMEOUT: 'iptv_timeout'
-    },
-    DEFAULT_TIMEOUT: 30000
+        PLAYLISTS: 'iptv_playlists',
+        ACTIVE_PLAYLIST: 'iptv_active_playlist',
+        PLAYBACK_POSITIONS: 'iptv_playback_positions'
+    }
 };

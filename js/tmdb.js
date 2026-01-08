@@ -1,50 +1,58 @@
-class TMDBService {
+class TMDBManager {
     constructor() {
         this.apiKey = CONFIG.TMDB_API_KEY;
         this.baseUrl = CONFIG.TMDB_BASE_URL;
+        this.imageBase = CONFIG.TMDB_IMAGE_BASE;
+        this.cache = {};
     }
-
-    isConfigured() {
-        return this.apiKey && this.apiKey !== 'TU_API_KEY_AQUI';
-    }
-
-    async getPopularMovies() {
-        if (!this.isConfigured()) return this.getMockData('movies');
+    async searchMovie(title) {
+        if (this.cache[title]) return this.cache[title];
         try {
-            const res = await fetch(`${this.baseUrl}/movie/popular?api_key=${this.apiKey}&language=es-ES`);
-            const data = await res.json();
-            return data.results || [];
-        } catch (e) {
-            return this.getMockData('movies');
+            const cleanTitle = this.cleanTitle(title);
+            logger.info(`Buscando en TMDB: ${cleanTitle}`);
+            const url = `${this.baseUrl}/search/movie?api_key=${this.apiKey}&language=es&query=${encodeURIComponent(cleanTitle)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+                const movie = data.results[0];
+                logger.success(`Encontrado: ${movie.title}`);
+                this.cache[title] = movie;
+                return movie;
+            }
+            logger.warning('No se encontró en TMDB');
+            return null;
+        } catch (error) {
+            logger.error('Error TMDB: ' + error.message);
+            return null;
         }
     }
-
-    async getPopularSeries() {
-        if (!this.isConfigured()) return this.getMockData('series');
+    async searchTVShow(title) {
+        if (this.cache[title]) return this.cache[title];
         try {
-            const res = await fetch(`${this.baseUrl}/tv/popular?api_key=${this.apiKey}&language=es-ES`);
-            const data = await res.json();
-            return data.results || [];
-        } catch (e) {
-            return this.getMockData('series');
+            const cleanTitle = this.cleanTitle(title);
+            logger.info(`Buscando serie en TMDB: ${cleanTitle}`);
+            const url = `${this.baseUrl}/search/tv?api_key=${this.apiKey}&language=es&query=${encodeURIComponent(cleanTitle)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+                const show = data.results[0];
+                logger.success(`Serie encontrada: ${show.name}`);
+                this.cache[title] = show;
+                return show;
+            }
+            logger.warning('Serie no encontrada en TMDB');
+            return null;
+        } catch (error) {
+            logger.error('Error TMDB: ' + error.message);
+            return null;
         }
     }
-
-    getImageUrl(path) {
-        if (!path) return 'https://via.placeholder.com/500x750?text=Sin+Imagen';
-        return `https://image.tmdb.org/t/p/w500${path}`;
+    cleanTitle(title) {
+        return title.replace(/\([0-9]{4}\)/g, '').replace(/\[[^\]]*\]/g, '').replace(/\b(HD|FHD|4K|1080p|720p)\b/gi, '').trim();
     }
-
-    getMockData(type) {
-        const movies = [
-            { id: 1, title: 'Ejemplo 1', poster_path: null, vote_average: 7.5, release_date: '2024' },
-            { id: 2, title: 'Ejemplo 2', poster_path: null, vote_average: 8.0, release_date: '2024' }
-        ];
-        const series = [
-            { id: 1, name: 'Ejemplo 1', poster_path: null, vote_average: 8.2, first_air_date: '2024' }
-        ];
-        return type === 'movies' ? movies : series;
+    getPosterUrl(posterPath) {
+        if (!posterPath) return null;
+        return this.imageBase + posterPath;
     }
 }
-
-const tmdbService = new TMDBService();
+const tmdb = new TMDBManager();

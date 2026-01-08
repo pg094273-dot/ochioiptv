@@ -8,7 +8,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <header class="header">
             <div class="header-top">
                 <h1>📺 IPTV Player PRO</h1>
@@ -16,7 +15,6 @@
             </div>
         </header>
 
-        <!-- Modal Playlists -->
         <div id="playlistModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -32,7 +30,7 @@
                         </div>
 
                         <div id="methodXtream" class="method-form active">
-                            <input type="text" id="playlistName" placeholder="Nombre de la lista" class="input">
+                            <input type="text" id="playlistName" placeholder="Nombre de la lista (ej: Mi IPTV)" class="input">
                             <input type="text" id="xtreamServer" placeholder="http://servidor:puerto" class="input">
                             <input type="text" id="xtreamUser" placeholder="Usuario" class="input">
                             <input type="password" id="xtreamPass" placeholder="Contraseña" class="input">
@@ -54,7 +52,6 @@
             </div>
         </div>
 
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="playlist-selector">
@@ -74,10 +71,14 @@
                 </div>
             </div>
 
-            <div id="contentList" class="content-list"></div>
+            <div id="contentList" class="content-list">
+                <div style="text-align: center; color: #666; padding: 30px 15px;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">📋</div>
+                    <p style="font-size: 12px;">Haz clic en 📋 para agregar una lista IPTV</p>
+                </div>
+            </div>
         </aside>
 
-        <!-- Main -->
         <main class="main">
             <div class="video-container">
                 <video id="videoPlayer" controls playsinline webkit-playsinline></video>
@@ -85,7 +86,7 @@
                     <div class="overlay-content">
                         <div class="overlay-icon">🎬</div>
                         <h2>IPTV Player PRO</h2>
-                        <p>Gestión múltiple de listas • Búsqueda avanzada • Integración TMDB • Reanudar reproducción</p>
+                        <p>Múltiples listas • Búsqueda avanzada • TMDB • Reanudar reproducción</p>
                     </div>
                 </div>
             </div>
